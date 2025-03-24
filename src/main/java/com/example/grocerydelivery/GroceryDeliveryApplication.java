@@ -65,19 +65,22 @@ public class GroceryDeliveryApplication {
             // Create delivery agents with delivery fees
             for (int i = 1; i <= 2; i++) {
                 Map<String, Object> deliveryParams = new HashMap<>();
+                String agentName;
                 
                 if (i == 1) {
-                    deliveryParams.put("name", "BoltFood");
+                    agentName = "BoltFood";
+                    deliveryParams.put("name", agentName);
                     deliveryParams.put("fee", 10.0);
                 } else {
-                    deliveryParams.put("name", "UberEats");
+                    agentName = "UberEats";
+                    deliveryParams.put("name", agentName);
                     deliveryParams.put("fee", 12.5);
                 }
                 
                 Object[] deliveryArgs = new Object[]{deliveryParams};
                 
                 AgentController deliveryAgent = mainContainer.createNewAgent(
-                        "Delivery" + i, 
+                        agentName, 
                         "com.example.grocerydelivery.agents.DeliveryAgent", 
                         deliveryArgs);
                 deliveryAgent.start();
@@ -85,13 +88,14 @@ public class GroceryDeliveryApplication {
             
             // Create client agent with shopping list
             Map<String, Object> clientParams = new HashMap<>();
+            String clientName = "Alice";
             clientParams.put("shoppingList", new String[]{"milk", "coffee", "rice"});
-            clientParams.put("name", "Alice");
+            clientParams.put("name", clientName);
             
             Object[] clientArgs = new Object[]{clientParams};
             
             AgentController clientAgent = mainContainer.createNewAgent(
-                    "Client1", 
+                    clientName, 
                     "com.example.grocerydelivery.agents.ClientAgent", 
                     clientArgs);
             clientAgent.start();

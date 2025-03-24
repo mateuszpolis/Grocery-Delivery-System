@@ -1,5 +1,6 @@
 package com.example.grocerydelivery.agents;
 
+import com.example.grocerydelivery.behaviours.MarketContractNetResponderBehaviour;
 import com.example.grocerydelivery.behaviours.MarketDeliveryRequestsServerBehaviour;
 import jade.core.Agent;
 import jade.domain.DFService;
@@ -46,8 +47,12 @@ public class MarketAgent extends Agent {
             // Register in the DF
             registerInDF();
             
-            // Add behavior to handle messages from delivery agents
+            // Add behavior to handle messages from delivery agents using the old protocol
             addBehaviour(new MarketDeliveryRequestsServerBehaviour(this));
+            
+            // Add behavior to handle Contract Net Protocol requests
+            addBehaviour(new MarketContractNetResponderBehaviour(
+                this, MarketContractNetResponderBehaviour.createMessageTemplate()));
             
         } else {
             System.out.println("MarketAgent requires parameters to start!");

@@ -1,6 +1,7 @@
 package com.example.grocerydelivery.agents;
 
 import com.example.grocerydelivery.behaviours.DeliveryClientRequestsServerBehaviour;
+import com.example.grocerydelivery.behaviours.DeliveryOrderProcessingBehaviour;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -35,8 +36,11 @@ public class DeliveryAgent extends Agent {
             // Register in the DF
             registerInDF();
             
-            // Add behavior to handle messages from clients
+            // Add behavior to handle messages from clients using the legacy approach
             addBehaviour(new DeliveryClientRequestsServerBehaviour(this, deliveryServiceName));
+            
+            // Add behavior to handle the complete order processing
+            addBehaviour(new DeliveryOrderProcessingBehaviour(this, deliveryServiceName, deliveryFee));
             
         } else {
             System.out.println("DeliveryAgent requires parameters to start!");
