@@ -184,9 +184,8 @@ public class ClientOrderBehaviour extends Behaviour {
             AID deliveryService = entry.getKey();
             DeliveryProposal proposal = entry.getValue();
             
-            // First priority: Status (SUCCESS > PARTIAL > FAILURE)
-            if (("SUCCESS".equals(proposal.status) && !"SUCCESS".equals(bestStatus)) ||
-                ("PARTIAL".equals(proposal.status) && "FAILURE".equals(bestStatus))) {
+            // First priority: Status (SUCCESS > FAILURE)
+            if ("SUCCESS".equals(proposal.status) && !"SUCCESS".equals(bestStatus)) {
                 System.out.println(clientName + ": Found better status - " + deliveryService.getLocalName() + 
                                   " with status " + proposal.status);
                 bestDeliveryService = deliveryService;
@@ -202,7 +201,7 @@ public class ClientOrderBehaviour extends Behaviour {
             }
         }
         
-        if (bestDeliveryService != null && !bestStatus.equals("FAILURE")) {
+        if (bestDeliveryService != null && "SUCCESS".equals(bestStatus)) {
             // Store the selected delivery service
             selectedDeliveryService = bestDeliveryService;
             
@@ -271,7 +270,7 @@ public class ClientOrderBehaviour extends Behaviour {
      * Internal class to store delivery service proposals
      */
     private static class DeliveryProposal {
-        String status = "FAILURE"; // SUCCESS, PARTIAL, FAILURE
+        String status = "FAILURE"; // SUCCESS or FAILURE
         double totalPrice = 0.0;
         Map<String, Double> availableItems = new HashMap<>();
         Set<String> unavailableItems = new HashSet<>();

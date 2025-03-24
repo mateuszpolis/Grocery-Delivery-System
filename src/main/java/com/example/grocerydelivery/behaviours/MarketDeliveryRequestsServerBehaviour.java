@@ -27,10 +27,17 @@ public class MarketDeliveryRequestsServerBehaviour extends CyclicBehaviour {
             try {
                 // Process the request
                 String content = msg.getContent();
-                marketAgent.log("received inquiry for: " + content);
+                String conversationId = msg.getConversationId();
+                
+                marketAgent.log("received inquiry for: " + content + " (conversation: " + conversationId + ")");
                 
                 // Prepare response with available items and prices
                 ACLMessage reply = msg.createReply();
+                
+                // Make sure to preserve the conversation ID
+                if (conversationId != null) {
+                    reply.setConversationId(conversationId);
+                }
                 
                 // For demonstration, parse a list of items requested
                 String[] requestedItems = content.split(",");

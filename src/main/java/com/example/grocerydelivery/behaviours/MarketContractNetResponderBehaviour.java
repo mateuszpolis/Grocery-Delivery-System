@@ -38,7 +38,8 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
 
     @Override
     protected ACLMessage handleCfp(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
-        marketAgent.log("Received CFP from " + cfp.getSender().getLocalName());
+        String conversationId = cfp.getConversationId();
+        marketAgent.log("Received CFP from " + cfp.getSender().getLocalName() + " (conversation: " + conversationId + ")");
         
         // Extract order from the message
         String content = cfp.getContent();
@@ -64,12 +65,12 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
         
         if (availableCount == 0) {
             // If no items are available, refuse the proposal
-            marketAgent.log("Refusing proposal - no items available");
+            marketAgent.log("Refusing proposal - no items available (conversation: " + conversationId + ")");
             reply.setPerformative(ACLMessage.REFUSE);
             reply.setContent("no-items-available");
         } else {
             // Propose the available items and their total price
-            marketAgent.log("Proposing " + availableCount + " items, total price: " + totalPrice);
+            marketAgent.log("Proposing " + availableCount + " items, total price: " + totalPrice + " (conversation: " + conversationId + ")");
             reply.setPerformative(ACLMessage.PROPOSE);
             
             // Format: availableCount|totalPrice|item1:price1,item2:price2,...
@@ -94,13 +95,14 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
 
     @Override
     protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
-        marketAgent.log("Proposal accepted by " + accept.getSender().getLocalName());
+        String conversationId = accept.getConversationId();
+        marketAgent.log("Proposal accepted by " + accept.getSender().getLocalName() + " (conversation: " + conversationId + ")");
         
         // Extract items to be delivered from the acceptance message
         String itemList = accept.getContent();
         
         // Process the order - simulate successful processing for this example
-        marketAgent.log("Processing order: " + itemList);
+        marketAgent.log("Processing order: " + itemList + " (conversation: " + conversationId + ")");
         
         // Send confirmation that items are ready for delivery
         ACLMessage inform = accept.createReply();
@@ -112,6 +114,7 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
 
     @Override
     protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
-        marketAgent.log("Proposal rejected by " + reject.getSender().getLocalName());
+        String conversationId = reject.getConversationId();
+        marketAgent.log("Proposal rejected by " + reject.getSender().getLocalName() + " (conversation: " + conversationId + ")");
     }
 } 

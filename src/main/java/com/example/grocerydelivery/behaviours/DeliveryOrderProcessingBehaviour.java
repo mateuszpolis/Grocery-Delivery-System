@@ -11,7 +11,9 @@ import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -24,6 +26,9 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     private final String deliveryServiceName;
     private final double deliveryFee;
     
+    // Track active conversation IDs to avoid duplicate processing
+    private final Map<String, Boolean> activeConversations = new HashMap<>();
+    
     public DeliveryOrderProcessingBehaviour(Agent agent, String serviceName, double fee) {
         super(agent);
         this.deliveryAgent = (DeliveryAgent) agent;
@@ -33,17 +38,43 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     
     @Override
     public void action() {
-        // Template to match order requests - fixed to correctly match REQUEST messages
-        MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
+        // Create templates for different message types to handle each separately
         
-        // Check for messages
+        // 1. Template for new order requests
+        MessageTemplate orderRequestTemplate = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
+        processOrderRequests(orderRequestTemplate);
+        
+        // 2. Template for payment messages
+        MessageTemplate paymentTemplate = MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL);
+        processPayments(paymentTemplate);
+        
+        // 3. Template for rejection messages
+        MessageTemplate rejectTemplate = MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL);
+        processRejections(rejectTemplate);
+        
+        // Block if no messages
+        block();
+    }
+    
+    private void processOrderRequests(MessageTemplate mt) {
         ACLMessage msg = myAgent.receive(mt);
         
         if (msg != null) {
+            // Get the conversation ID to track this request
+            String conversationId = msg.getConversationId();
+            
+            // Skip if we've already processed this conversation
+            if (activeConversations.containsKey(conversationId)) {
+                System.out.println(deliveryServiceName + ": Ignoring duplicate request with ID: " + conversationId);
+                return;
+            }
+            
+            // Mark this conversation as active
+            activeConversations.put(conversationId, true);
+            
             // Process the request
             String content = msg.getContent();
             AID clientAID = msg.getSender();
-            String conversationId = msg.getConversationId();
             
             System.out.println(deliveryServiceName + ": Received order request from " + 
                                clientAID.getLocalName() + ": " + content);
@@ -64,7 +95,7 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                 
                 // Create contract net initiator to negotiate with markets
                 ACLMessage cfp = DeliveryContractNetInitiatorBehaviour.createCFP(
-                    myAgent, marketAIDs, shoppingList, "market-" + UUID.randomUUID().toString());
+                    myAgent, marketAIDs, shoppingList, conversationId);
                 
                 myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
                     myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
@@ -91,7 +122,7 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                         
                         // Create contract net initiator to negotiate with markets
                         ACLMessage cfp = DeliveryContractNetInitiatorBehaviour.createCFP(
-                            myAgent, marketAIDs, shoppingList, "market-" + UUID.randomUUID().toString());
+                            myAgent, marketAIDs, shoppingList, conversationId);
                         
                         myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
                             myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
@@ -104,6 +135,9 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                         myAgent.send(reply);
                         
                         System.out.println(deliveryServiceName + ": No markets found, sent failure reply to " + clientAID.getLocalName());
+                        
+                        // Clean up tracking for this conversation
+                        activeConversations.remove(conversationId);
                     }
                     
                 } catch (FIPAException fe) {
@@ -114,21 +148,22 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                     reply.setPerformative(ACLMessage.FAILURE);
                     reply.setContent("Error-searching-markets");
                     myAgent.send(reply);
+                    
+                    // Clean up tracking for this conversation
+                    activeConversations.remove(conversationId);
                 }
             }
-            
-        } else {
-            block();
         }
-        
-        // Also check for payment messages (ACCEPT_PROPOSAL)
-        MessageTemplate paymentTemplate = MessageTemplate.MatchPerformative(ACLMessage.ACCEPT_PROPOSAL);
-        ACLMessage paymentMsg = myAgent.receive(paymentTemplate);
+    }
+    
+    private void processPayments(MessageTemplate mt) {
+        ACLMessage paymentMsg = myAgent.receive(mt);
         
         if (paymentMsg != null) {
             // Process payment
             AID clientAID = paymentMsg.getSender();
             String content = paymentMsg.getContent();
+            String conversationId = paymentMsg.getConversationId();
             
             if (content.startsWith("PAYMENT:")) {
                 // Extract payment amount
@@ -144,18 +179,29 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                 myAgent.send(confirmation);
                 
                 System.out.println(deliveryServiceName + ": Order delivered to " + clientAID.getLocalName());
+                
+                // Clean up tracking for this conversation
+                if (conversationId != null) {
+                    activeConversations.remove(conversationId);
+                }
             }
         }
-        
-        // Check for rejection messages
-        MessageTemplate rejectTemplate = MessageTemplate.MatchPerformative(ACLMessage.REJECT_PROPOSAL);
-        ACLMessage rejectMsg = myAgent.receive(rejectTemplate);
+    }
+    
+    private void processRejections(MessageTemplate mt) {
+        ACLMessage rejectMsg = myAgent.receive(mt);
         
         if (rejectMsg != null) {
             // Process rejection
             AID clientAID = rejectMsg.getSender();
+            String conversationId = rejectMsg.getConversationId();
             
             System.out.println(deliveryServiceName + ": Proposal rejected by " + clientAID.getLocalName());
+            
+            // Clean up tracking for this conversation
+            if (conversationId != null) {
+                activeConversations.remove(conversationId);
+            }
         }
     }
 } 
