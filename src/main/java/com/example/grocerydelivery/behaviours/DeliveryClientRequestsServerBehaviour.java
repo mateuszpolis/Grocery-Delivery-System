@@ -11,11 +11,10 @@ import jade.lang.acl.MessageTemplate;
  */
 public class DeliveryClientRequestsServerBehaviour extends CyclicBehaviour {
     
-    private final DeliveryAgent deliveryAgent;
     private final String deliveryServiceName;
     
     public DeliveryClientRequestsServerBehaviour(DeliveryAgent agent, String serviceName) {
-        this.deliveryAgent = agent;
+        super(agent);
         this.deliveryServiceName = serviceName;
     }
     

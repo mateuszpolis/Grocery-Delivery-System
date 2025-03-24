@@ -16,12 +16,11 @@ import java.util.Iterator;
  */
 public class ClientFindDeliveryServicesBehaviour extends OneShotBehaviour {
     
-    private final ClientAgent clientAgent;
     private final String clientName;
     private final String[] shoppingList;
     
     public ClientFindDeliveryServicesBehaviour(ClientAgent agent, String clientName, String[] shoppingList) {
-        this.clientAgent = agent;
+        super(agent);
         this.clientName = clientName;
         this.shoppingList = shoppingList;
     }
