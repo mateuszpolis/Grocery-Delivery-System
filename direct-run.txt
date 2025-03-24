@@ -1,0 +1,14 @@
+To run the Grocery Delivery System directly without scripts, use the following command:
+
+# From the project root directory (after compiling with 'mvn compile'):
+
+# On macOS/Linux:
+java -cp "target/classes:lib/jade.jar" com.example.grocerydelivery.GroceryDeliveryApplication
+
+# On Windows:
+java -cp "target\classes;lib\jade.jar" com.example.grocerydelivery.GroceryDeliveryApplication
+
+# To start the JADE with Remote Management GUI:
+java -cp "target/classes:lib/jade.jar" jade.Boot -gui -agents "client1:com.example.grocerydelivery.agents.ClientAgent;delivery1:com.example.grocerydelivery.agents.DeliveryAgent;market1:com.example.grocerydelivery.agents.MarketAgent"
+
+Note: When using the last command with JADE's jade.Boot class, you'll need to manually handle agent parameters. 
