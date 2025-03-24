@@ -1,14 +1,12 @@
 package com.example.grocerydelivery.agents;
 
+import com.example.grocerydelivery.behaviours.DeliveryClientRequestsServerBehaviour;
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
-import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
 
 import java.util.Map;
 
@@ -25,6 +23,7 @@ public class DeliveryAgent extends Agent {
         Object[] args = getArguments();
         
         if (args != null && args.length > 0 && args[0] instanceof Map) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> params = (Map<String, Object>) args[0];
             
             // Extract parameters
@@ -37,7 +36,7 @@ public class DeliveryAgent extends Agent {
             registerInDF();
             
             // Add behavior to handle messages from clients
-            addBehaviour(new ClientRequestsServer());
+            addBehaviour(new DeliveryClientRequestsServerBehaviour(this, deliveryServiceName));
             
         } else {
             System.out.println("DeliveryAgent requires parameters to start!");
@@ -76,41 +75,19 @@ public class DeliveryAgent extends Agent {
     }
     
     /**
-     * Behavior to handle requests from ClientAgents
+     * Gets the delivery fee
+     * @return The delivery fee
      */
-    private class ClientRequestsServer extends CyclicBehaviour {
-        @Override
-        public void action() {
-            // Listen for order requests
-            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
-            ACLMessage msg = myAgent.receive(mt);
-            
-            if (msg != null) {
-                try {
-                    // Process the request
-                    String content = msg.getContent();
-                    System.out.println(deliveryServiceName + " received order request: " + content);
-                    
-                    // For demonstration, just acknowledge the order
-                    ACLMessage reply = msg.createReply();
-                    reply.setPerformative(ACLMessage.INFORM);
-                    reply.setContent("Order-Received");
-                    
-                    myAgent.send(reply);
-                    
-                    // Detailed order processing will be implemented in future tasks
-                    
-                } catch (Exception e) {
-                    System.out.println("Error processing message: " + e.getMessage());
-                    ACLMessage reply = msg.createReply();
-                    reply.setPerformative(ACLMessage.FAILURE);
-                    reply.setContent("Error-processing-request");
-                    myAgent.send(reply);
-                }
-            } else {
-                block();
-            }
-        }
+    public double getDeliveryFee() {
+        return deliveryFee;
+    }
+    
+    /**
+     * Gets the delivery service name
+     * @return The delivery service name
+     */
+    public String getDeliveryServiceName() {
+        return deliveryServiceName;
     }
     
     @Override

@@ -1,14 +1,12 @@
 package com.example.grocerydelivery.agents;
 
+import com.example.grocerydelivery.behaviours.MarketDeliveryRequestsServerBehaviour;
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
-import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -28,6 +26,7 @@ public class MarketAgent extends Agent {
         Object[] args = getArguments();
         
         if (args != null && args.length > 0 && args[0] instanceof Map) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> params = (Map<String, Object>) args[0];
             
             // Extract parameters
@@ -42,13 +41,13 @@ public class MarketAgent extends Agent {
                 prices.put(item, value);
             }
             
-            System.out.println(marketName + " started with inventory: " + Arrays.toString(inventory));
+            log("started with inventory: " + Arrays.toString(inventory));
             
             // Register in the DF
             registerInDF();
             
             // Add behavior to handle messages from delivery agents
-            addBehaviour(new DeliveryRequestsServer());
+            addBehaviour(new MarketDeliveryRequestsServerBehaviour(this));
             
         } else {
             System.out.println("MarketAgent requires parameters to start!");
@@ -85,7 +84,7 @@ public class MarketAgent extends Agent {
             // Register the services in the DF
             DFService.register(this, dfd);
             
-            System.out.println(marketName + " registered in DF with services: main market and " + inventory.length + " items");
+            log("registered in DF with services: main market and " + inventory.length + " items");
             
         } catch (FIPAException fe) {
             fe.printStackTrace();
@@ -93,63 +92,20 @@ public class MarketAgent extends Agent {
     }
     
     /**
-     * Behavior to handle requests from DeliveryAgents
+     * Gets the price of an item
+     * @param item The item name
+     * @return The price of the item, or null if not available
      */
-    private class DeliveryRequestsServer extends CyclicBehaviour {
-        @Override
-        public void action() {
-            // Listen for price inquiry messages
-            MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.CFP);
-            ACLMessage msg = myAgent.receive(mt);
-            
-            if (msg != null) {
-                try {
-                    // Process the request
-                    String content = msg.getContent();
-                    System.out.println(marketName + " received inquiry for: " + content);
-                    
-                    // Prepare response with available items and prices
-                    ACLMessage reply = msg.createReply();
-                    
-                    // For demonstration, parse a list of items requested
-                    String[] requestedItems = content.split(",");
-                    
-                    // Build response with available items and their prices
-                    StringBuilder responseBuilder = new StringBuilder();
-                    int availableItemCount = 0;
-                    
-                    for (String requestedItem : requestedItems) {
-                        requestedItem = requestedItem.trim();
-                        if (prices.containsKey(requestedItem)) {
-                            responseBuilder.append(requestedItem).append(":").append(prices.get(requestedItem)).append(",");
-                            availableItemCount++;
-                        }
-                    }
-                    
-                    if (availableItemCount > 0) {
-                        // Remove trailing comma
-                        String response = responseBuilder.substring(0, responseBuilder.length() - 1);
-                        
-                        reply.setPerformative(ACLMessage.PROPOSE);
-                        reply.setContent(response);
-                    } else {
-                        reply.setPerformative(ACLMessage.REFUSE);
-                        reply.setContent("No-items-available");
-                    }
-                    
-                    myAgent.send(reply);
-                    
-                } catch (Exception e) {
-                    System.out.println("Error processing message: " + e.getMessage());
-                    ACLMessage reply = msg.createReply();
-                    reply.setPerformative(ACLMessage.REFUSE);
-                    reply.setContent("Error-processing-request");
-                    myAgent.send(reply);
-                }
-            } else {
-                block();
-            }
-        }
+    public Double getPrice(String item) {
+        return prices.get(item);
+    }
+    
+    /**
+     * Logs a message with the market name prefix
+     * @param message The message to log
+     */
+    public void log(String message) {
+        System.out.println(marketName + " " + message);
     }
     
     @Override
@@ -157,11 +113,11 @@ public class MarketAgent extends Agent {
         // Deregister from the DF
         try {
             DFService.deregister(this);
-            System.out.println(marketName + " deregistered from DF");
+            log("deregistered from DF");
         } catch (FIPAException fe) {
             fe.printStackTrace();
         }
         
-        System.out.println(marketName + " terminated.");
+        log("terminated.");
     }
 } 
