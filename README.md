@@ -24,8 +24,58 @@ The workflow is as follows:
     - `ClientAgent.java`: Client agent implementation
     - `DeliveryAgent.java`: Delivery service agent implementation
     - `MarketAgent.java`: Market agent implementation
-  - `behaviours/`: Contains agent behaviors (to be implemented)
-  - `models/`: Contains data models (to be implemented)
+  - `behaviours/`: Contains agent behaviors
+  - `config/`: Contains configuration utilities
+    - `ConfigLoader.java`: Loads agent configurations from JSON
+- `config.json`: Configuration file for agents and their relationships
+
+## Agent Configuration
+
+The system now uses a JSON configuration file (`config.json`) to define all agents and their relationships:
+
+1. **Markets**: Define each market with:
+   - `name`: Market identifier
+   - `inventory`: Array of available products
+   - `prices`: Map of products to prices
+
+2. **Delivery Services**: Define each delivery service with:
+   - `name`: Service identifier
+   - `fee`: Delivery fee
+   - `connectedMarkets`: Array of market names this service is connected to
+
+3. **Clients**: Define each client with:
+   - `name`: Client identifier
+   - `shoppingList`: Array of products the client wants to order
+
+Example configuration:
+```json
+{
+  "markets": [
+    {
+      "name": "Market1",
+      "inventory": ["milk", "coffee", "bread"],
+      "prices": {
+        "milk": 5.0,
+        "coffee": 30.0,
+        "bread": 4.5
+      }
+    }
+  ],
+  "deliveryServices": [
+    {
+      "name": "BoltFood",
+      "fee": 10.0,
+      "connectedMarkets": ["Market1", "Market2"]
+    }
+  ],
+  "clients": [
+    {
+      "name": "Alice",
+      "shoppingList": ["milk", "coffee"]
+    }
+  ]
+}
+```
 
 ## Prerequisites
 
@@ -46,46 +96,43 @@ For Windows:
 run.bat
 ```
 
-These scripts will compile the project and run the application with the correct classpath including the JADE library.
+These scripts will:
+1. Compile the project
+2. Copy all dependencies to the target directory
+3. Run the application with the JADE platform and the specified configuration file
 
-### Using Maven (Not Working Due to Classpath Issues)
+### Using a Custom Config File
+
+To use a custom configuration file:
 
 ```bash
-mvn compile exec:java
+java -cp target/classes:lib/jade.jar:target/dependency/* com.example.grocerydelivery.GroceryDeliveryApplication /path/to/your/config.json
 ```
-Note: This method might not work correctly due to issues with the system-scoped JADE dependency.
-
-### Using an IDE
-
-1. Import the project into your IDE (IntelliJ, Eclipse, etc.)
-2. Add the `lib/jade.jar` to your project classpath
-3. Run the `GroceryDeliveryApplication` class
 
 ## Implementation Details
 
-### Task 1 Implementation
+### Task 1 & 2: Implementation
 
-The first task of the project has been implemented:
+The project now implements:
 
-#### 1. Created three agent types:
-- `ClientAgent`: Searches for delivery services and places orders
-- `DeliveryAgent`: Registers its service in DF and handles client requests
-- `MarketAgent`: Registers its products in DF and connects with delivery agents
+1. **Agent types with behaviors**:
+   - `ClientAgent`: Searches for delivery services and places orders
+   - `DeliveryAgent`: Registers its service in DF and handles client requests
+   - `MarketAgent`: Registers its products in DF and connects with delivery agents
 
-#### 2. Parameter passing:
-- All agents accept parameters via a Map in their constructor arguments
+2. **Market Selection Algorithm**:
+   - Delivery agents initially try to select all items from the market with the largest number available
+   - If multiple markets have the same items, they choose the one with the lowest price
+   - If not all items can be selected from one place, they repeat for missing items
 
-#### 3. DF Registration:
-- DeliveryAgent registers its service with "grocery-delivery" type
-- MarketAgent registers each product as a separate service with "grocery-item" type
+3. **JSON Configuration**:
+   - All agents and their relationships are defined in a JSON configuration file
+   - Delivery services have specified connections to markets, limiting which markets they can interact with
+   - Multiple clients can be defined with different shopping lists
 
-#### 4. Market and Delivery agent connection:
-- MarketAgent can receive queries from DeliveryAgent and provide product information
-- DeliveryAgent can find markets by searching the DF for specific products
-
-#### 5. Client-Delivery interaction:
-- ClientAgent can search for delivery services in the DF
-- ClientAgent can send order requests to delivery services
+4. **Contract Net Protocol**:
+   - Implementation of the FIPA Contract Net Protocol for negotiation between agents
+   - Proper handling of proposals, acceptances, and rejections
 
 ## License
 

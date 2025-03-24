@@ -2,6 +2,7 @@ package com.example.grocerydelivery.agents;
 
 import com.example.grocerydelivery.behaviours.DeliveryClientRequestsServerBehaviour;
 import com.example.grocerydelivery.behaviours.DeliveryOrderProcessingBehaviour;
+import jade.core.AID;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -9,6 +10,8 @@ import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,6 +21,7 @@ import java.util.Map;
 public class DeliveryAgent extends Agent {
     private String deliveryServiceName;
     private double deliveryFee;
+    private List<AID> connectedMarkets = new ArrayList<>();
 
     @Override
     protected void setup() {
@@ -32,6 +36,15 @@ public class DeliveryAgent extends Agent {
             this.deliveryFee = (Double) params.get("fee");
             
             System.out.println(deliveryServiceName + " started with delivery fee: " + deliveryFee);
+            
+            // Store connected markets if provided
+            if (params.containsKey("connectedMarkets")) {
+                String[] marketNames = (String[]) params.get("connectedMarkets");
+                for (String marketName : marketNames) {
+                    connectedMarkets.add(new AID(marketName, AID.ISLOCALNAME));
+                    System.out.println(deliveryServiceName + " connected to market: " + marketName);
+                }
+            }
             
             // Register in the DF
             registerInDF();
@@ -92,6 +105,14 @@ public class DeliveryAgent extends Agent {
      */
     public String getDeliveryServiceName() {
         return deliveryServiceName;
+    }
+    
+    /**
+     * Gets the connected markets
+     * @return List of connected markets' AIDs
+     */
+    public List<AID> getConnectedMarkets() {
+        return connectedMarkets;
     }
     
     @Override

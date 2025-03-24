@@ -1,12 +1,14 @@
 package com.example.grocerydelivery;
 
+import com.example.grocerydelivery.config.ConfigLoader;
 import jade.core.Profile;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
 import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 
-import java.util.HashMap;
+import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -29,76 +31,61 @@ public class GroceryDeliveryApplication {
             
             System.out.println("JADE platform started successfully!");
             
-            // Create market agents with inventory and prices
-            for (int i = 1; i <= 3; i++) {
-                Map<String, Object> marketParams = new HashMap<>();
-                
-                // Different markets have different inventory and prices
-                if (i == 1) {
-                    marketParams.put("inventory", new String[]{"milk", "coffee", "bread", "sugar"});
-                    marketParams.put("prices", new Object[][]{
-                        {"milk", 5.0}, {"coffee", 30.0}, {"bread", 4.5}, {"sugar", 3.2}
-                    });
-                } else if (i == 2) {
-                    marketParams.put("inventory", new String[]{"coffee", "rice", "eggs", "flour"});
-                    marketParams.put("prices", new Object[][]{
-                        {"coffee", 25.0}, {"rice", 3.0}, {"eggs", 10.0}, {"flour", 2.8}
-                    });
-                } else {
-                    marketParams.put("inventory", new String[]{"rice", "tea", "tomatoes", "potatoes"});
-                    marketParams.put("prices", new Object[][]{
-                        {"rice", 4.0}, {"tea", 12.0}, {"tomatoes", 8.0}, {"potatoes", 6.5}
-                    });
-                }
-                
-                marketParams.put("name", "Market" + i);
+            // Load configuration from config.json
+            String configPath = "config.json";
+            if (args.length > 0) {
+                configPath = args[0];
+            }
+            
+            File configFile = new File(configPath);
+            if (!configFile.exists()) {
+                System.err.println("Configuration file not found: " + configPath);
+                System.exit(1);
+            }
+            
+            ConfigLoader config = new ConfigLoader(configPath);
+            
+            // Create market agents
+            List<Map<String, Object>> markets = config.getMarkets();
+            for (Map<String, Object> marketParams : markets) {
+                String marketName = (String) marketParams.get("name");
                 
                 Object[] marketArgs = new Object[]{marketParams};
                 
                 AgentController marketAgent = mainContainer.createNewAgent(
-                        "Market" + i, 
+                        marketName, 
                         "com.example.grocerydelivery.agents.MarketAgent", 
                         marketArgs);
                 marketAgent.start();
             }
             
-            // Create delivery agents with delivery fees
-            for (int i = 1; i <= 2; i++) {
-                Map<String, Object> deliveryParams = new HashMap<>();
-                String agentName;
-                
-                if (i == 1) {
-                    agentName = "BoltFood";
-                    deliveryParams.put("name", agentName);
-                    deliveryParams.put("fee", 10.0);
-                } else {
-                    agentName = "UberEats";
-                    deliveryParams.put("name", agentName);
-                    deliveryParams.put("fee", 12.5);
-                }
+            // Create delivery agents
+            List<Map<String, Object>> deliveryServices = config.getDeliveryServices();
+            for (Map<String, Object> deliveryParams : deliveryServices) {
+                String deliveryName = (String) deliveryParams.get("name");
                 
                 Object[] deliveryArgs = new Object[]{deliveryParams};
                 
                 AgentController deliveryAgent = mainContainer.createNewAgent(
-                        agentName, 
+                        deliveryName, 
                         "com.example.grocerydelivery.agents.DeliveryAgent", 
                         deliveryArgs);
                 deliveryAgent.start();
             }
             
-            // Create client agent with shopping list
-            Map<String, Object> clientParams = new HashMap<>();
-            String clientName = "Alice";
-            clientParams.put("shoppingList", new String[]{"milk", "coffee", "rice"});
-            clientParams.put("name", clientName);
-            
-            Object[] clientArgs = new Object[]{clientParams};
-            
-            AgentController clientAgent = mainContainer.createNewAgent(
-                    clientName, 
-                    "com.example.grocerydelivery.agents.ClientAgent", 
-                    clientArgs);
-            clientAgent.start();
+            // Create client agents
+            List<Map<String, Object>> clients = config.getClients();
+            for (Map<String, Object> clientParams : clients) {
+                String clientName = (String) clientParams.get("name");
+                
+                Object[] clientArgs = new Object[]{clientParams};
+                
+                AgentController clientAgent = mainContainer.createNewAgent(
+                        clientName, 
+                        "com.example.grocerydelivery.agents.ClientAgent", 
+                        clientArgs);
+                clientAgent.start();
+            }
             
             System.out.println("All agents created and started!");
             

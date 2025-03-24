@@ -11,6 +11,7 @@ import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -50,50 +51,70 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
             // Parse shopping list
             String[] shoppingList = content.split(",");
             
-            // Find all available markets
-            try {
-                DFAgentDescription template = new DFAgentDescription();
-                ServiceDescription sd = new ServiceDescription();
-                sd.setType("grocery-market");
-                template.addServices(sd);
+            // If connectedMarkets is specified, use only those markets
+            DeliveryAgent deliveryAgent = (DeliveryAgent) myAgent;
+            List<AID> connectedMarkets = deliveryAgent.getConnectedMarkets();
+            
+            if (!connectedMarkets.isEmpty()) {
+                // Use only connected markets
+                System.out.println(deliveryServiceName + ": Using " + connectedMarkets.size() + 
+                                  " connected markets for order processing");
                 
-                DFAgentDescription[] marketAgents = DFService.search(myAgent, template);
+                AID[] marketAIDs = connectedMarkets.toArray(new AID[0]);
                 
-                if (marketAgents.length > 0) {
-                    System.out.println(deliveryServiceName + ": Found " + marketAgents.length + 
-                                      " markets for order processing");
+                // Create contract net initiator to negotiate with markets
+                ACLMessage cfp = DeliveryContractNetInitiatorBehaviour.createCFP(
+                    myAgent, marketAIDs, shoppingList, "market-" + UUID.randomUUID().toString());
+                
+                myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
+                    myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
+                
+            } else {
+                // Use DF to find all markets (legacy behavior)
+                try {
+                    DFAgentDescription template = new DFAgentDescription();
+                    ServiceDescription sd = new ServiceDescription();
+                    sd.setType("grocery-market");
+                    template.addServices(sd);
                     
-                    // Convert DFAgentDescription array to AID array
-                    AID[] marketAIDs = new AID[marketAgents.length];
-                    for (int i = 0; i < marketAgents.length; i++) {
-                        marketAIDs[i] = marketAgents[i].getName();
+                    DFAgentDescription[] marketAgents = DFService.search(myAgent, template);
+                    
+                    if (marketAgents.length > 0) {
+                        System.out.println(deliveryServiceName + ": Found " + marketAgents.length + 
+                                          " markets for order processing");
+                        
+                        // Convert DFAgentDescription array to AID array
+                        AID[] marketAIDs = new AID[marketAgents.length];
+                        for (int i = 0; i < marketAgents.length; i++) {
+                            marketAIDs[i] = marketAgents[i].getName();
+                        }
+                        
+                        // Create contract net initiator to negotiate with markets
+                        ACLMessage cfp = DeliveryContractNetInitiatorBehaviour.createCFP(
+                            myAgent, marketAIDs, shoppingList, "market-" + UUID.randomUUID().toString());
+                        
+                        myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
+                            myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
+                        
+                    } else {
+                        // No markets found, send failure response to client
+                        ACLMessage reply = msg.createReply();
+                        reply.setPerformative(ACLMessage.PROPOSE);
+                        reply.setContent("FAILURE|0||");
+                        myAgent.send(reply);
+                        
+                        System.out.println(deliveryServiceName + ": No markets found, sent failure reply to " + clientAID.getLocalName());
                     }
                     
-                    // Create contract net initiator to negotiate with markets
-                    ACLMessage cfp = DeliveryContractNetInitiatorBehaviour.createCFP(
-                        myAgent, marketAIDs, shoppingList, "market-" + UUID.randomUUID().toString());
+                } catch (FIPAException fe) {
+                    fe.printStackTrace();
                     
-                    myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
-                        myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
-                    
-                } else {
-                    // No markets found, send failure response to client
+                    // Send failure response to client
                     ACLMessage reply = msg.createReply();
-                    reply.setPerformative(ACLMessage.PROPOSE);
-                    reply.setContent("FAILURE|0||");
+                    reply.setPerformative(ACLMessage.FAILURE);
+                    reply.setContent("Error-searching-markets");
                     myAgent.send(reply);
-                    
-                    System.out.println(deliveryServiceName + ": No markets found, sent failure reply to " + clientAID.getLocalName());
                 }
-                
-            } catch (FIPAException fe) {
-                fe.printStackTrace();
-                
-                // Send failure response to client
-                ACLMessage reply = msg.createReply();
-                reply.setPerformative(ACLMessage.FAILURE);
-                reply.setContent("Error-searching-markets");
-                myAgent.send(reply);
             }
             
         } else {
