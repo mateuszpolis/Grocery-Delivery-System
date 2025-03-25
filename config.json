@@ -38,35 +38,23 @@
         "tomatoes": 7.0,
         "potatoes": 5.0
       }
-    },
-    {
-      "name": "Market5",
-      "inventory": ["milk", "coffee", "rice", "bread", "eggs", "tea"],
-      "prices": {
-        "milk": 5.0,
-        "coffee": 3.0,
-        "rice": 3.0,
-        "bread": 4.5,
-        "eggs": 10.0,
-        "tea": 12.0
-      }
     }
   ],
   "deliveryServices": [
     {
       "name": "BoltFood",
       "fee": 10.0,
-      "connectedMarkets": ["Market1", "Market2", "Market5"]
+      "connectedMarkets": ["Market1", "Market2"]
     },
     {
       "name": "UberEats",
       "fee": 12.5,
-      "connectedMarkets": ["Market2", "Market3", "Market4", "Market5"]
+      "connectedMarkets": ["Market2", "Market3", "Market4"]
     },
     {
       "name": "Glovo",
       "fee": 11.0,
-      "connectedMarkets": ["Market1", "Market3", "Market4", "Market5"]
+      "connectedMarkets": ["Market1", "Market3", "Market4"]
     }
   ],
   "clients": [

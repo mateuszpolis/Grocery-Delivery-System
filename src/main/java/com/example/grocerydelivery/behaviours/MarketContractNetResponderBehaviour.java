@@ -37,7 +37,10 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
      * Creates a standard template for Contract Net Protocol
      */
     public static MessageTemplate createMessageTemplate() {
-        return MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+        // Create a more specific template that matches both protocol and message type
+        MessageTemplate protocolTemplate = MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
+        MessageTemplate performativeTemplate = MessageTemplate.MatchPerformative(ACLMessage.CFP);
+        return MessageTemplate.and(protocolTemplate, performativeTemplate);
     }
 
     @Override
