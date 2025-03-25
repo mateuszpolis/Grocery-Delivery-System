@@ -1,0 +1,39 @@
+{
+  "markets": [
+    {
+      "name": "Market1",
+      "inventory": ["milk", "coffee"],
+      "prices": {
+        "milk": 5.0,
+        "coffee": 30.0
+      }
+    },
+    {
+      "name": "Market2",
+      "inventory": ["coffee"],
+      "prices": {
+        "coffee": 25.0
+      }
+    },
+    {
+      "name": "Market3",
+      "inventory": ["rice"],
+      "prices": {
+        "rice": 4.0
+      }
+    }
+  ],
+  "deliveryServices": [
+    {
+      "name": "TestDelivery",
+      "fee": 10.0,
+      "connectedMarkets": ["Market1", "Market2", "Market3"]
+    }
+  ],
+  "clients": [
+    {
+      "name": "TestClient",
+      "shoppingList": ["milk", "coffee", "rice"]
+    }
+  ]
+} 
