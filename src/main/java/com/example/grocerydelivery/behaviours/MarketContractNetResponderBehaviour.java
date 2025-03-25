@@ -46,12 +46,17 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
         if (cfp.getPerformative() != ACLMessage.CFP) {
             logger.warn("Received non-CFP message in handleCfp: {} from {}", 
                        ACLMessage.getPerformative(cfp.getPerformative()), cfp.getSender().getLocalName());
-            throw new NotUnderstoodException("Expected CFP performative");
+            // Instead of throwing an exception, just return a not-understood message
+            ACLMessage notUnderstood = cfp.createReply();
+            notUnderstood.setPerformative(ACLMessage.NOT_UNDERSTOOD);
+            return notUnderstood;
         }
         
         String conversationId = cfp.getConversationId();
-        logger.info("Received CFP from {} (conversation: {})", 
-                   cfp.getSender().getLocalName(), conversationId);
+        String clientReference = cfp.getReplyWith(); // Get the original client conversation ID if available
+        
+        logger.info("Received CFP from {} (conversation: {}, client reference: {})", 
+                   cfp.getSender().getLocalName(), conversationId, clientReference);
         
         // Extract order from the message
         String content = cfp.getContent();
@@ -77,6 +82,11 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
         
         // Prepare response
         ACLMessage reply = cfp.createReply();
+        
+        // Preserve the client reference if available
+        if (clientReference != null && !clientReference.isEmpty()) {
+            reply.setInReplyTo(clientReference);
+        }
         
         if (availableCount == 0) {
             // If no items are available, refuse the proposal
@@ -113,8 +123,10 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
     @Override
     protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
         String conversationId = accept.getConversationId();
-        logger.info("Proposal accepted by {} (conversation: {})", 
-                   accept.getSender().getLocalName(), conversationId);
+        String clientReference = accept.getInReplyTo(); // Get the client reference if available
+        
+        logger.info("Proposal accepted by {} (conversation: {}, client reference: {})", 
+                   accept.getSender().getLocalName(), conversationId, clientReference);
         
         // Extract items to be delivered from the acceptance message
         String itemList = accept.getContent();
@@ -128,13 +140,20 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
         inform.setPerformative(ACLMessage.INFORM);
         inform.setContent("items-ready");
         
+        // Preserve the client reference if available
+        if (clientReference != null && !clientReference.isEmpty()) {
+            inform.setInReplyTo(clientReference);
+        }
+        
         return inform;
     }
 
     @Override
     protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
         String conversationId = reject.getConversationId();
-        logger.info("Proposal rejected by {} (conversation: {})", 
-                   reject.getSender().getLocalName(), conversationId);
+        String clientReference = reject.getInReplyTo(); // Get the client reference if available
+        
+        logger.info("Proposal rejected by {} (conversation: {}, client reference: {})", 
+                   reject.getSender().getLocalName(), conversationId, clientReference);
     }
 } 

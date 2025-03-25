@@ -21,7 +21,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     private final String[] shoppingList;
     private final double deliveryFee;
     private final AID clientAID;
-    private final String conversationId;
+    private final String clientConversationId;
     private final Logger logger;
     
     // Price calculation results
@@ -39,13 +39,13 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         this.shoppingList = shoppingList;
         this.deliveryFee = deliveryFee;
         this.clientAID = clientAID;
-        this.conversationId = conversationId;
+        this.clientConversationId = conversationId;
         
         String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
         this.logger = LoggerUtil.getLogger(
             "DeliveryContractNet_" + deliveryName, "Behaviour");
         
-        logger.info("Starting contract negotiation for conversation {}", conversationId);
+        logger.info("Starting contract negotiation for client conversation {}", clientConversationId);
     }
     
     /**
@@ -65,23 +65,23 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // Set the content (comma-separated list of items)
         cfp.setContent(String.join(",", shoppingList));
         
-        // Use the provided conversation ID to track this specific negotiation
-        // If none provided, generate a new one
-        if (conversationId == null || conversationId.isEmpty()) {
-            conversationId = "market-" + UUID.randomUUID().toString();
-        } else if (conversationId.startsWith("forwarded-")) {
-            // Strip the forwarded- prefix to ensure we use the original conversation ID
-            conversationId = conversationId.substring("forwarded-".length());
+        // Always generate a new unique conversation ID for market communications
+        // Store the original client conversation ID in the reply-with field if needed for correlation
+        String marketConversationId = "market-" + UUID.randomUUID().toString();
+        cfp.setConversationId(marketConversationId);
+        
+        // Store the original client conversation ID for correlation
+        if (conversationId != null && !conversationId.isEmpty()) {
+            cfp.setReplyWith("client-conversation-" + conversationId);
         }
-        cfp.setConversationId(conversationId);
         
         // Set a reply deadline (10 seconds)
         cfp.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
         
         // Get a logger for this static method
         Logger staticLogger = LoggerUtil.getLogger("DeliveryContractNet_Static", "Behaviour");
-        staticLogger.debug("Created CFP message for {} markets with conversation ID: {}", 
-                          marketAgents.length, conversationId);
+        staticLogger.debug("Created CFP message for {} markets with new conversation ID: {}, linked to client conversation: {}, protocol: {}", 
+                          marketAgents.length, marketConversationId, conversationId, cfp.getProtocol());
         
         return cfp;
     }
@@ -89,22 +89,38 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     @Override
     @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handlePropose(ACLMessage propose, Vector v) {
-        logger.debug("Received proposal from {}", propose.getSender().getLocalName());
+        String marketName = propose.getSender().getLocalName();
+        String clientRef = propose.getInReplyTo(); // Get the original client reference if available
+        
+        logger.debug("Received proposal from {} (market conversation: {}, client ref: {})", 
+                marketName, propose.getConversationId(), clientRef);
     }
 
     @Override
     protected void handleRefuse(ACLMessage refuse) {
-        logger.debug("Received refusal from {}", refuse.getSender().getLocalName());
+        String marketName = refuse.getSender().getLocalName();
+        String clientRef = refuse.getInReplyTo(); // Get the original client reference if available
+        
+        logger.debug("Received refusal from {} (market conversation: {}, client ref: {})", 
+                marketName, refuse.getConversationId(), clientRef);
     }
 
     @Override
     protected void handleFailure(ACLMessage failure) {
-        logger.warn("Transaction failure from {}", failure.getSender().getLocalName());
+        String marketName = failure.getSender().getLocalName();
+        String clientRef = failure.getInReplyTo(); // Get the original client reference if available
+        
+        logger.warn("Transaction failure from {} (market conversation: {}, client ref: {})", 
+                marketName, failure.getConversationId(), clientRef);
     }
 
     @Override
     protected void handleInform(ACLMessage inform) {
-        logger.info("Order confirmed by {}", inform.getSender().getLocalName());
+        String marketName = inform.getSender().getLocalName();
+        String clientRef = inform.getInReplyTo(); // Get the original client reference if available
+        
+        logger.info("Order confirmed by {} (market conversation: {}, client ref: {})", 
+                marketName, inform.getConversationId(), clientRef);
     }
 
     @Override
@@ -115,11 +131,11 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // 2. If multiple markets have the same count, choose the one with lowest price
         // 3. If not all items can be selected from one place, repeat for missing items
         
-        logger.info("Processing {} market responses (conversation: {})", responses.size(), conversationId);
+        logger.info("Processing {} market responses (conversation: {})", responses.size(), clientConversationId);
         
         // Add a delay to ensure all responses are collected
         if (responses.isEmpty()) {
-            logger.warn("No market responses received, waiting longer for responses (conversation: {})", conversationId);
+            logger.warn("No market responses received, waiting longer for responses (conversation: {})", clientConversationId);
             try {
                 Thread.sleep(2000); // Wait an additional 2 seconds for late responses
             } catch (InterruptedException e) {
@@ -128,7 +144,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
             
             // Re-check if any responses arrived after waiting
             if (responses.isEmpty()) {
-                logger.warn("Still no market responses after waiting (conversation: {})", conversationId);
+                logger.warn("Still no market responses after waiting (conversation: {})", clientConversationId);
             }
         }
         
@@ -336,16 +352,11 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     }
 
     private void sendProposalToClient(boolean isSuccess) {
-        // Create a new message to send to the client
-        ACLMessage clientReply = new ACLMessage(ACLMessage.PROPOSE);
-        clientReply.addReceiver(clientAID);
+        ACLMessage proposal = new ACLMessage(ACLMessage.PROPOSE);
+        proposal.addReceiver(clientAID);
         
-        // Ensure the conversation ID doesn't have any forwarded- prefix
-        String originalConversationId = conversationId;
-        if (originalConversationId.startsWith("forwarded-")) {
-            originalConversationId = originalConversationId.substring("forwarded-".length());
-        }
-        clientReply.setConversationId(originalConversationId);
+        // Use the original client conversation ID for client communication
+        proposal.setConversationId(clientConversationId);
         
         // Format the message to the client
         StringBuilder content = new StringBuilder();
@@ -353,14 +364,14 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // Only mark SUCCESS for complete orders, FAILURE for partial orders
         if (isSuccess) {
             content.append("SUCCESS");
-            logger.info("Sending SUCCESS proposal with complete order ({} items, conversation: {})", finalItemPrices.size(), conversationId);
+            logger.info("Sending SUCCESS proposal with complete order ({} items, conversation: {})", finalItemPrices.size(), clientConversationId);
         } else {
             content.append("FAILURE");
             if (!finalItemPrices.isEmpty()) {
                 logger.info("Sending FAILURE proposal for partial order, found {} items but missing {} items (conversation: {})",
-                        finalItemPrices.size(), unavailableItems.size(), conversationId);
+                        finalItemPrices.size(), unavailableItems.size(), clientConversationId);
             } else {
-                logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", conversationId);
+                logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", clientConversationId);
             }
         }
         
@@ -387,10 +398,10 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         }
         
         // Set message content
-        clientReply.setContent(content.toString());
+        proposal.setContent(content.toString());
         
         // Send reply to client
-        myAgent.send(clientReply);
-        logger.info("Sent proposal to client {} with total price: {} (conversation: {})", clientAID.getLocalName(), bestTotalPrice, conversationId);
+        myAgent.send(proposal);
+        logger.info("Sent proposal to client {} with total price: {} (conversation: {})", clientAID.getLocalName(), bestTotalPrice, clientConversationId);
     }
 } 
