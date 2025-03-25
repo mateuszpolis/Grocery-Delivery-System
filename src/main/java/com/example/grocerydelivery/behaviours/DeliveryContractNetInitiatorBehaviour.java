@@ -112,7 +112,6 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // 2. If multiple markets have the same count, choose the one with lowest price
         // 3. If not all items can be selected from one place, repeat for missing items
         
-        String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
         logger.info("Processing {} market responses (conversation: {})", responses.size(), conversationId);
         logger.info("Starting with algorithm: 1) Select market with most items, 2) Tie-break by price, 3) Repeat for remaining items");
         
@@ -296,7 +295,10 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 logger.info("Rejecting proposal from {}", response.getSender().getLocalName());
             }
             
-            acceptances.add(reply);
+            // Add reply to acceptances Vector - using @SuppressWarnings for raw type
+            @SuppressWarnings("unchecked")
+            Vector<ACLMessage> typedAcceptances = acceptances;
+            typedAcceptances.add(reply);
         }
         
         // After processing all responses, prepare to respond to the client
@@ -355,10 +357,6 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     @Override
     @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handleAllResultNotifications(Vector resultNotifications) {
-        String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
-        logger.info("All markets have processed the order");
-        
-        // At this point, we've received confirmations from all selected markets
-        // We could update our internal state, but for this example we'll just log it
+        logger.info("All markets have processed the order");        
     }
 } 

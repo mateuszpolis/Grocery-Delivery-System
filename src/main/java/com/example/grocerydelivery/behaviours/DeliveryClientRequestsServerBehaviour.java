@@ -13,12 +13,10 @@ import org.apache.logging.log4j.Logger;
  */
 public class DeliveryClientRequestsServerBehaviour extends CyclicBehaviour {
     
-    private final String deliveryServiceName;
     private final Logger logger;
     
     public DeliveryClientRequestsServerBehaviour(DeliveryAgent agent, String serviceName) {
         super(agent);
-        this.deliveryServiceName = serviceName;
         this.logger = LoggerUtil.getLogger(
             "DeliveryClientRequests_" + serviceName, "Behaviour");
         logger.info("DeliveryClientRequestsServerBehaviour initialized for {}", serviceName);

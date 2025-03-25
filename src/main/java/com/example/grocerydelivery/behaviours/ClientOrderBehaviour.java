@@ -1,6 +1,5 @@
 package com.example.grocerydelivery.behaviours;
 
-import com.example.grocerydelivery.agents.ClientAgent;
 import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.AID;
 import jade.core.Agent;

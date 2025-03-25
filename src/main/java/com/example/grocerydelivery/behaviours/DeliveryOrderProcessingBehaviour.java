@@ -23,7 +23,6 @@ import java.util.Map;
  */
 public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     
-    private final String deliveryServiceName;
     private final double deliveryFee;
     private final Logger logger;
     
@@ -32,7 +31,6 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     
     public DeliveryOrderProcessingBehaviour(Agent agent, String serviceName, double fee) {
         super(agent);
-        this.deliveryServiceName = serviceName;
         this.deliveryFee = fee;
         this.logger = LoggerUtil.getLogger(
             "DeliveryOrderProcessing_" + serviceName, "Behaviour");

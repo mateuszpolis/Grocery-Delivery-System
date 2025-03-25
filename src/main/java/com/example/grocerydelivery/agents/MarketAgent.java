@@ -1,21 +1,16 @@
 package com.example.grocerydelivery.agents;
 
 import com.example.grocerydelivery.behaviours.MarketContractNetResponderBehaviour;
-import com.example.grocerydelivery.behaviours.MarketDeliveryRequestsServerBehaviour;
 import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
-import jade.domain.FIPANames;
 import jade.lang.acl.MessageTemplate;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
