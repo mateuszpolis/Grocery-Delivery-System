@@ -2,15 +2,20 @@ package com.example.grocerydelivery.agents;
 
 import com.example.grocerydelivery.behaviours.MarketContractNetResponderBehaviour;
 import com.example.grocerydelivery.behaviours.MarketDeliveryRequestsServerBehaviour;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
+import jade.domain.FIPANames;
+import jade.lang.acl.MessageTemplate;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -19,49 +24,70 @@ import java.util.Map;
  */
 public class MarketAgent extends Agent {
     private String marketName;
-    private String[] inventory;
-    private Map<String, Double> prices = new HashMap<>();
+    private Map<String, Double> inventory = new HashMap<>();
+    private Logger logger;
 
     @Override
     protected void setup() {
+        // Extract agent parameters
         Object[] args = getArguments();
-        
-        if (args != null && args.length > 0 && args[0] instanceof Map) {
+        if (args != null && args.length > 0) {
             @SuppressWarnings("unchecked")
             Map<String, Object> params = (Map<String, Object>) args[0];
             
-            // Extract parameters
-            this.marketName = (String) params.get("name");
-            this.inventory = (String[]) params.get("inventory");
+            marketName = (String) params.get("name");
+            // Initialize logger
+            logger = LoggerUtil.getLogger(marketName, "Agent");
             
-            // Extract prices
-            Object[][] priceArray = (Object[][]) params.get("prices");
-            for (Object[] price : priceArray) {
-                String item = (String) price[0];
-                Double value = (Double) price[1];
-                prices.put(item, value);
+            logger.info("Market agent starting: {}", marketName);
+            
+            // Process inventory and prices
+            String[] inventoryArray = (String[]) params.get("inventory");
+            
+            // Convert prices from Object[][] to Map
+            Object[][] pricesArray = (Object[][]) params.get("prices");
+            Map<String, Double> prices = new HashMap<>();
+            if (pricesArray != null) {
+                for (Object[] pair : pricesArray) {
+                    String item = (String) pair[0];
+                    Double price = (Double) pair[1];
+                    prices.put(item, price);
+                }
             }
             
-            log("started with inventory: " + Arrays.toString(inventory));
+            if (inventoryArray != null && prices != null) {
+                for (String item : inventoryArray) {
+                    Double price = prices.get(item);
+                    if (price != null) {
+                        inventory.put(item, price);
+                        logger.debug("Added to inventory: {} at price {}", item, price);
+                    }
+                }
+            }
             
-            // Register in the DF
-            registerInDF();
-            
-            // Add behavior to handle messages from delivery agents using the old protocol
-            addBehaviour(new MarketDeliveryRequestsServerBehaviour(this));
-            
-            // Add behavior to handle Contract Net Protocol requests
-            addBehaviour(new MarketContractNetResponderBehaviour(
-                this, MarketContractNetResponderBehaviour.createMessageTemplate()));
-            
+            logger.info("Market has {} items in inventory", inventory.size());
         } else {
-            System.out.println("MarketAgent requires parameters to start!");
-            doDelete();
+            // Default values if no args provided
+            marketName = "DefaultMarket";
+            logger = LoggerUtil.getLogger(marketName, "Agent");
+            logger.warn("No parameters provided, using defaults: {}", marketName);
         }
+        
+        // Register in the DF
+        registerInDF();
+        
+        // Create a template to match Contract Net Protocol messages
+        MessageTemplate template = MarketContractNetResponderBehaviour.createMessageTemplate();
+        
+        // Add behavior to respond to contract net requests
+        addBehaviour(new MarketContractNetResponderBehaviour(this, template));
+        logger.debug("Added MarketContractNetResponderBehaviour");
+        
+        logger.info("Market agent {} setup completed", marketName);
     }
     
     /**
-     * Register the market services in the Directory Facilitator (DF)
+     * Register the market service in the Directory Facilitator (DF)
      */
     private void registerInDF() {
         try {
@@ -69,48 +95,21 @@ public class MarketAgent extends Agent {
             DFAgentDescription dfd = new DFAgentDescription();
             dfd.setName(getAID());
             
-            // Main market service description
-            ServiceDescription mainSd = new ServiceDescription();
-            mainSd.setType("grocery-market");
-            mainSd.setName(marketName);
-            dfd.addServices(mainSd);
+            // Market service description
+            ServiceDescription sd = new ServiceDescription();
+            sd.setType("grocery-market");
+            sd.setName(marketName);
             
-            // Register individual items as services
-            for (String item : inventory) {
-                ServiceDescription itemSd = new ServiceDescription();
-                itemSd.setType("grocery-item");
-                itemSd.setName(item);
-                // Add the price as a property
-                Property priceProp = new Property("price", prices.get(item).toString());
-                itemSd.addProperties(priceProp);
-                dfd.addServices(itemSd);
-            }
+            dfd.addServices(sd);
             
-            // Register the services in the DF
+            // Register the service in the DF
             DFService.register(this, dfd);
             
-            log("registered in DF with services: main market and " + inventory.length + " items");
+            logger.info("Registered in DF as a grocery market");
             
-        } catch (FIPAException fe) {
-            fe.printStackTrace();
+        } catch (FIPAException e) {
+            logger.error("Failed to register in DF", e);
         }
-    }
-    
-    /**
-     * Gets the price of an item
-     * @param item The item name
-     * @return The price of the item, or null if not available
-     */
-    public Double getPrice(String item) {
-        return prices.get(item);
-    }
-    
-    /**
-     * Logs a message with the market name prefix
-     * @param message The message to log
-     */
-    public void log(String message) {
-        System.out.println(marketName + " " + message);
     }
     
     @Override
@@ -118,11 +117,42 @@ public class MarketAgent extends Agent {
         // Deregister from the DF
         try {
             DFService.deregister(this);
-            log("deregistered from DF");
-        } catch (FIPAException fe) {
-            fe.printStackTrace();
+            logger.info("Deregistered from the DF");
+        } catch (FIPAException e) {
+            logger.error("Failed to deregister from DF", e);
         }
         
-        log("terminated.");
+        logger.info("Market agent {} terminating", marketName);
+    }
+    
+    /**
+     * Log a message from the market agent.
+     */
+    public void log(String message) {
+        logger.info(message);
+    }
+    
+    /**
+     * Gets the price of a specific item.
+     * 
+     * @param item The item to check
+     * @return The price, or null if not available
+     */
+    public Double getPrice(String item) {
+        return inventory.get(item);
+    }
+    
+    /**
+     * Gets the market name.
+     */
+    public String getMarketName() {
+        return marketName;
+    }
+    
+    /**
+     * Gets the logger for this agent.
+     */
+    public Logger getLogger() {
+        return logger;
     }
 } 

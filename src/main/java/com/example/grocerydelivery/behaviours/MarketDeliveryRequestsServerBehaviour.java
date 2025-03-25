@@ -1,9 +1,11 @@
 package com.example.grocerydelivery.behaviours;
 
 import com.example.grocerydelivery.agents.MarketAgent;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Behavior to handle requests from DeliveryAgents for the MarketAgent.
@@ -12,9 +14,14 @@ import jade.lang.acl.MessageTemplate;
 public class MarketDeliveryRequestsServerBehaviour extends CyclicBehaviour {
     
     private final MarketAgent marketAgent;
+    private final Logger logger;
     
     public MarketDeliveryRequestsServerBehaviour(MarketAgent agent) {
         this.marketAgent = agent;
+        this.logger = LoggerUtil.getLogger(
+            "MarketDeliveryRequests_" + agent.getMarketName(), "Behaviour");
+        logger.info("MarketDeliveryRequestsServerBehaviour initialized for {}", 
+                   agent.getMarketName());
     }
     
     @Override
@@ -29,7 +36,8 @@ public class MarketDeliveryRequestsServerBehaviour extends CyclicBehaviour {
                 String content = msg.getContent();
                 String conversationId = msg.getConversationId();
                 
-                marketAgent.log("received inquiry for: " + content + " (conversation: " + conversationId + ")");
+                logger.info("Received inquiry for: {} (conversation: {})", 
+                           content, conversationId);
                 
                 // Prepare response with available items and prices
                 ACLMessage reply = msg.createReply();
@@ -52,6 +60,9 @@ public class MarketDeliveryRequestsServerBehaviour extends CyclicBehaviour {
                     if (price != null) {
                         responseBuilder.append(requestedItem).append(":").append(price).append(",");
                         availableItemCount++;
+                        logger.debug("Item available: {} at price {}", requestedItem, price);
+                    } else {
+                        logger.debug("Item not available: {}", requestedItem);
                     }
                 }
                 
@@ -61,15 +72,17 @@ public class MarketDeliveryRequestsServerBehaviour extends CyclicBehaviour {
                     
                     reply.setPerformative(ACLMessage.PROPOSE);
                     reply.setContent(response);
+                    logger.info("Proposing {} available items", availableItemCount);
                 } else {
                     reply.setPerformative(ACLMessage.REFUSE);
                     reply.setContent("No-items-available");
+                    logger.info("Refusing - no items available");
                 }
                 
                 myAgent.send(reply);
                 
             } catch (Exception e) {
-                marketAgent.log("Error processing message: " + e.getMessage());
+                logger.error("Error processing message", e);
                 ACLMessage reply = msg.createReply();
                 reply.setPerformative(ACLMessage.REFUSE);
                 reply.setContent("Error-processing-request");

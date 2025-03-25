@@ -1,12 +1,14 @@
 package com.example.grocerydelivery.behaviours;
 
 import com.example.grocerydelivery.agents.DeliveryAgent;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.proto.ContractNetInitiator;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 
@@ -20,6 +22,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     private final double deliveryFee;
     private final AID clientAID;
     private final String conversationId;
+    private final Logger logger;
     
     // Price calculation results
     private double bestTotalPrice = Double.MAX_VALUE;
@@ -39,7 +42,10 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         this.conversationId = conversationId;
         
         String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
-        System.out.println(deliveryName + ": Starting contract negotiation for conversation " + conversationId);
+        this.logger = LoggerUtil.getLogger(
+            "DeliveryContractNet_" + deliveryName, "Behaviour");
+        
+        logger.info("Starting contract negotiation for conversation {}", conversationId);
     }
     
     /**
@@ -69,30 +75,33 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // Set a reply deadline (5 seconds)
         cfp.setReplyByDate(new Date(System.currentTimeMillis() + 5000));
         
+        // Get a logger for this static method
+        Logger staticLogger = LoggerUtil.getLogger("DeliveryContractNet_Static", "Behaviour");
+        staticLogger.debug("Created CFP message for {} markets with conversation ID: {}", 
+                          marketAgents.length, conversationId);
+        
         return cfp;
     }
 
     @Override
     @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handlePropose(ACLMessage propose, Vector v) {
-        System.out.println(myAgent.getLocalName() + " (" + ((DeliveryAgent)myAgent).getDeliveryServiceName() + "): Received proposal from " + propose.getSender().getLocalName());
+        logger.debug("Received proposal from {}", propose.getSender().getLocalName());
     }
 
     @Override
     protected void handleRefuse(ACLMessage refuse) {
-        System.out.println(myAgent.getLocalName() + " (" + ((DeliveryAgent)myAgent).getDeliveryServiceName() + "): Received refusal from " + refuse.getSender().getLocalName());
+        logger.debug("Received refusal from {}", refuse.getSender().getLocalName());
     }
 
     @Override
     protected void handleFailure(ACLMessage failure) {
-        String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
-        System.out.println(deliveryName + ": Transaction failure from " + failure.getSender().getLocalName());
+        logger.warn("Transaction failure from {}", failure.getSender().getLocalName());
     }
 
     @Override
     protected void handleInform(ACLMessage inform) {
-        String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
-        System.out.println(deliveryName + ": Order confirmed by " + inform.getSender().getLocalName());
+        logger.info("Order confirmed by {}", inform.getSender().getLocalName());
     }
 
     @Override
@@ -104,8 +113,8 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // 3. If not all items can be selected from one place, repeat for missing items
         
         String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
-        System.out.println(deliveryName + ": Processing " + responses.size() + " market responses (conversation: " + conversationId + ")");
-        System.out.println(deliveryName + ": Starting with algorithm: 1) Select market with most items, 2) Tie-break by price, 3) Repeat for remaining items");
+        logger.info("Processing {} market responses (conversation: {})", responses.size(), conversationId);
+        logger.info("Starting with algorithm: 1) Select market with most items, 2) Tie-break by price, 3) Repeat for remaining items");
         
         // Extract all available items from all markets
         Map<AID, Map<String, Double>> marketItemPrices = new HashMap<>();
@@ -118,7 +127,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 AID marketAID = response.getSender();
                 String content = response.getContent();
                 
-                System.out.println(deliveryName + ": Parsing proposal from " + marketAID.getLocalName() + ": " + content);
+                logger.debug("Parsing proposal from {}: {}", marketAID.getLocalName(), content);
                 
                 // Parse the proposal content (format: count|totalPrice|item1:price1,item2:price2,...)
                 String[] parts = content.split("\\|", 3);
@@ -133,7 +142,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                             String item = itemParts[0];
                             double price = Double.parseDouble(itemParts[1]);
                             itemPrices.put(item, price);
-                            System.out.println(deliveryName + ": Market " + marketAID.getLocalName() + " has " + item + " for " + price);
+                            logger.debug("Market {} has {} for {}", marketAID.getLocalName(), item, price);
                         }
                     }
                     
@@ -145,7 +154,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // Create a list of all items needed
         Set<String> remainingItems = new HashSet<>(Arrays.asList(shoppingList));
         
-        System.out.println(deliveryName + ": Need to find " + remainingItems.size() + " items: " + remainingItems);
+        logger.info("Need to find {} items: {}", remainingItems.size(), remainingItems);
         
         // Clear results from previous runs
         selectedMarkets.clear();
@@ -156,7 +165,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         int iterationCount = 0;
         while (!remainingItems.isEmpty() && !marketItemPrices.isEmpty()) {
             iterationCount++;
-            System.out.println(deliveryName + ": Iteration " + iterationCount + " - Finding best market for remaining items: " + remainingItems);
+            logger.info("Iteration {} - Finding best market for remaining items: {}", iterationCount, remainingItems);
             
             // Find market with the most available items from the remaining items list
             AID bestMarketAID = null;
@@ -183,8 +192,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 
                 int availableCount = availableItems.size();
                 
-                System.out.println(deliveryName + ": Market " + marketAID.getLocalName() + 
-                                  " has " + availableCount + " of the needed items for total price " + totalPrice);
+                logger.info("Market {} has {} of the needed items for total price {}", marketAID.getLocalName(), availableCount, totalPrice);
                 
                 // Rule 1: Choose market with most items
                 if (availableCount > maxAvailableItems) {
@@ -193,8 +201,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                     bestMarketAID = marketAID;
                     bestMarketItems = marketItems;
                     bestMarketAvailableItems = new HashSet<>(availableItems);
-                    System.out.println(deliveryName + ": New best market: " + marketAID.getLocalName() + 
-                                      " with " + availableCount + " items (most items rule)");
+                    logger.info("New best market: {} with {} items (most items rule)", marketAID.getLocalName(), availableCount);
                 }
                 // Rule 2: If same number of items, choose cheapest
                 else if (availableCount == maxAvailableItems && availableCount > 0 && totalPrice < lowestTotalPrice) {
@@ -202,21 +209,19 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                     bestMarketAID = marketAID;
                     bestMarketItems = marketItems;
                     bestMarketAvailableItems = new HashSet<>(availableItems);
-                    System.out.println(deliveryName + ": New best market: " + marketAID.getLocalName() + 
-                                      " with lower price " + totalPrice + " (price tie-breaker rule)");
+                    logger.info("New best market: {} with lower price {} (price tie-breaker rule)", marketAID.getLocalName(), totalPrice);
                 }
             }
             
             // If no market has any of the remaining items, break
             if (bestMarketAID == null || maxAvailableItems == 0) {
-                System.out.println(deliveryName + ": No markets have the remaining items: " + remainingItems);
+                logger.info("No markets have the remaining items: {}", remainingItems);
                 unavailableItems.addAll(remainingItems);
                 break;
             }
             
             // Process the selected market
-            System.out.println(deliveryName + ": SELECTING market " + bestMarketAID.getLocalName() + 
-                              " for " + bestMarketAvailableItems.size() + " items with total price " + lowestTotalPrice);
+            logger.info("SELECTING market {} for {} items with total price {}", bestMarketAID.getLocalName(), bestMarketAvailableItems.size(), lowestTotalPrice);
             
             // Build the list of items to get from this market
             StringBuilder selectedItems = new StringBuilder();
@@ -237,8 +242,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 // Remove from remaining items
                 remainingItems.remove(item);
                 
-                System.out.println(deliveryName + ": Adding " + item + " from " + 
-                                  bestMarketAID.getLocalName() + " at price " + price);
+                logger.info("Adding {} from {} at price {}", item, bestMarketAID.getLocalName(), price);
             }
             
             // Add this market to selected markets
@@ -247,7 +251,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
             // Remove this market from consideration for next iterations
             marketItemPrices.remove(bestMarketAID);
             
-            System.out.println(deliveryName + ": Remaining items to find: " + remainingItems);
+            logger.info("Remaining items to find: {}", remainingItems);
         }
         
         // Any items still in remaining items are unavailable
@@ -260,16 +264,16 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         boolean canFulfillOrder = unavailableItems.isEmpty();
         String fulfillmentStatus = canFulfillOrder ? "COMPLETE" : "PARTIAL";
         
-        System.out.println("====== " + deliveryName + ": ORDER SUMMARY ======");
-        System.out.println("Items found: " + finalItemPrices.keySet());
-        System.out.println("Items unavailable: " + unavailableItems);
-        System.out.println("Total price (incl. delivery fee): " + bestTotalPrice);
-        System.out.println("Order fulfillment: " + fulfillmentStatus);
-        System.out.println("Selected markets: ");
+        logger.info("====== ORDER SUMMARY ======");
+        logger.info("Items found: {}", finalItemPrices.keySet());
+        logger.info("Items unavailable: {}", unavailableItems);
+        logger.info("Total price (incl. delivery fee): {}", bestTotalPrice);
+        logger.info("Order fulfillment: {}", fulfillmentStatus);
+        logger.info("Selected markets: ");
         for (Map.Entry<AID, String> market : selectedMarkets) {
-            System.out.println("  - " + market.getKey().getLocalName() + ": " + market.getValue());
+            logger.info("  - {} : {}", market.getKey().getLocalName(), market.getValue());
         }
-        System.out.println("===============================");
+        logger.info("===============================");
         
         // Create acceptance or rejection messages for each market
         for (Object obj : responses) {
@@ -285,14 +289,11 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 // Accept this proposal
                 reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
                 reply.setContent(selectedMarket.get().getValue()); // The items we want
-                System.out.println(deliveryName + ": Accepting proposal from " + 
-                                   response.getSender().getLocalName() + 
-                                   " for items: " + selectedMarket.get().getValue());
+                logger.info("Accepting proposal from {} for items: {}", response.getSender().getLocalName(), selectedMarket.get().getValue());
             } else if (response.getPerformative() == ACLMessage.PROPOSE) {
                 // Reject this proposal
                 reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
-                System.out.println(deliveryName + ": Rejecting proposal from " + 
-                                   response.getSender().getLocalName());
+                logger.info("Rejecting proposal from {}", response.getSender().getLocalName());
             }
             
             acceptances.add(reply);
@@ -313,11 +314,10 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 if (!finalItemPrices.isEmpty()) {
                     content.append("SUCCESS");
                     String orderType = canFulfillOrder ? "complete" : "partial";
-                    System.out.println(deliveryName + ": Sending SUCCESS proposal with " + 
-                                      finalItemPrices.size() + " items (" + orderType + " order, conversation: " + conversationId + ")");
+                    logger.info("Sending SUCCESS proposal with {} items ({}, conversation: {})", finalItemPrices.size(), orderType, conversationId);
                 } else {
                     content.append("FAILURE");
-                    System.out.println(deliveryName + ": Sending FAILURE proposal, couldn't find any items (conversation: " + conversationId + ")");
+                    logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", conversationId);
                 }
                 
                 // Add total price
@@ -347,9 +347,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 
                 // Send reply to client
                 myAgent.send(clientReply);
-                System.out.println(deliveryName + ": Sent proposal to client " + 
-                                   clientAID.getLocalName() + " with total price: " + bestTotalPrice + 
-                                   " (conversation: " + conversationId + ")");
+                logger.info("Sent proposal to client {} with total price: {} (conversation: {})", clientAID.getLocalName(), bestTotalPrice, conversationId);
             }
         });
     }
@@ -358,7 +356,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handleAllResultNotifications(Vector resultNotifications) {
         String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
-        System.out.println(deliveryName + ": All markets have processed the order");
+        logger.info("All markets have processed the order");
         
         // At this point, we've received confirmations from all selected markets
         // We could update our internal state, but for this example we'll just log it

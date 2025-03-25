@@ -2,117 +2,87 @@ package com.example.grocerydelivery.agents;
 
 import com.example.grocerydelivery.behaviours.DeliveryClientRequestsServerBehaviour;
 import com.example.grocerydelivery.behaviours.DeliveryOrderProcessingBehaviour;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 /**
- * DeliveryAgent represents a delivery service that connects clients with markets
- * and delivers groceries to clients.
+ * Delivery agent that connects clients with markets and handles order processing.
  */
 public class DeliveryAgent extends Agent {
+    
     private String deliveryServiceName;
     private double deliveryFee;
     private List<AID> connectedMarkets = new ArrayList<>();
-
+    private Logger logger;
+    
     @Override
     protected void setup() {
+        // Extract agent parameters
         Object[] args = getArguments();
-        
-        if (args != null && args.length > 0 && args[0] instanceof Map) {
+        if (args != null && args.length > 0) {
             @SuppressWarnings("unchecked")
             Map<String, Object> params = (Map<String, Object>) args[0];
             
-            // Extract parameters
-            this.deliveryServiceName = (String) params.get("name");
-            this.deliveryFee = (Double) params.get("fee");
+            deliveryServiceName = (String) params.get("name");
+            deliveryFee = ((Number) params.get("fee")).doubleValue();
             
-            System.out.println(deliveryServiceName + " started with delivery fee: " + deliveryFee);
+            // Initialize logger
+            logger = LoggerUtil.getLogger(deliveryServiceName, "Agent");
             
-            // Store connected markets if provided
-            if (params.containsKey("connectedMarkets")) {
-                String[] marketNames = (String[]) params.get("connectedMarkets");
-                for (String marketName : marketNames) {
+            logger.info("Delivery agent starting: {} with fee {}", deliveryServiceName, deliveryFee);
+            
+            // Process connected markets
+            String[] marketNamesArray = (String[]) params.get("connectedMarkets");
+            if (marketNamesArray != null) {
+                logger.info("Connected to {} markets: {}", marketNamesArray.length, String.join(", ", marketNamesArray));
+                for (String marketName : marketNamesArray) {
                     connectedMarkets.add(new AID(marketName, AID.ISLOCALNAME));
-                    System.out.println(deliveryServiceName + " connected to market: " + marketName);
                 }
             }
-            
-            // Register in the DF
-            registerInDF();
-            
-            // Add behavior to handle messages from clients using the legacy approach
-            addBehaviour(new DeliveryClientRequestsServerBehaviour(this, deliveryServiceName));
-            
-            // Add behavior to handle the complete order processing
-            addBehaviour(new DeliveryOrderProcessingBehaviour(this, deliveryServiceName, deliveryFee));
-            
         } else {
-            System.out.println("DeliveryAgent requires parameters to start!");
-            doDelete();
+            // Default values if no args provided
+            deliveryServiceName = "DefaultDelivery";
+            deliveryFee = 10.0;
+            logger = LoggerUtil.getLogger(deliveryServiceName, "Agent");
+            logger.warn("No parameters provided, using defaults: {} with fee {}", 
+                       deliveryServiceName, deliveryFee);
         }
-    }
-    
-    /**
-     * Register the delivery service in the Directory Facilitator (DF)
-     */
-    private void registerInDF() {
+        
+        // Register the delivery service in the DF
+        DFAgentDescription dfd = new DFAgentDescription();
+        dfd.setName(getAID());
+        
+        ServiceDescription sd = new ServiceDescription();
+        sd.setType("grocery-delivery");
+        sd.setName(deliveryServiceName);
+        dfd.addServices(sd);
+        
         try {
-            // Create agent description
-            DFAgentDescription dfd = new DFAgentDescription();
-            dfd.setName(getAID());
-            
-            // Delivery service description
-            ServiceDescription sd = new ServiceDescription();
-            sd.setType("grocery-delivery");
-            sd.setName(deliveryServiceName);
-            
-            // Add delivery fee as a property
-            Property feeProp = new Property("delivery-fee", String.valueOf(deliveryFee));
-            sd.addProperties(feeProp);
-            
-            dfd.addServices(sd);
-            
-            // Register the service in the DF
             DFService.register(this, dfd);
-            
-            System.out.println(deliveryServiceName + " registered in DF as a grocery delivery service");
-            
-        } catch (FIPAException fe) {
-            fe.printStackTrace();
+            logger.info("Registered with DF as grocery-delivery service: {}", deliveryServiceName);
+        } catch (FIPAException e) {
+            logger.error("Failed to register with DF", e);
         }
-    }
-    
-    /**
-     * Gets the delivery fee
-     * @return The delivery fee
-     */
-    public double getDeliveryFee() {
-        return deliveryFee;
-    }
-    
-    /**
-     * Gets the delivery service name
-     * @return The delivery service name
-     */
-    public String getDeliveryServiceName() {
-        return deliveryServiceName;
-    }
-    
-    /**
-     * Gets the connected markets
-     * @return List of connected markets' AIDs
-     */
-    public List<AID> getConnectedMarkets() {
-        return connectedMarkets;
+        
+        // Add behavior to handle client requests
+        addBehaviour(new DeliveryClientRequestsServerBehaviour(this, deliveryServiceName));
+        logger.debug("Added DeliveryClientRequestsServerBehaviour");
+        
+        // Add behavior to process orders
+        addBehaviour(new DeliveryOrderProcessingBehaviour(this, deliveryServiceName, deliveryFee));
+        logger.debug("Added DeliveryOrderProcessingBehaviour");
+        
+        logger.info("Delivery agent {} setup completed", deliveryServiceName);
     }
     
     @Override
@@ -120,11 +90,39 @@ public class DeliveryAgent extends Agent {
         // Deregister from the DF
         try {
             DFService.deregister(this);
-            System.out.println(deliveryServiceName + " deregistered from DF");
-        } catch (FIPAException fe) {
-            fe.printStackTrace();
+            logger.info("Deregistered from the DF");
+        } catch (FIPAException e) {
+            logger.error("Failed to deregister from DF", e);
         }
         
-        System.out.println(deliveryServiceName + " terminated.");
+        logger.info("Delivery agent {} terminating", deliveryServiceName);
+    }
+    
+    /**
+     * Gets the name of this delivery service.
+     */
+    public String getDeliveryServiceName() {
+        return deliveryServiceName;
+    }
+    
+    /**
+     * Gets the delivery fee charged by this service.
+     */
+    public double getDeliveryFee() {
+        return deliveryFee;
+    }
+    
+    /**
+     * Gets the list of markets this delivery service is connected to.
+     */
+    public List<AID> getConnectedMarkets() {
+        return connectedMarkets;
+    }
+    
+    /**
+     * Gets the logger for this agent.
+     */
+    public Logger getLogger() {
+        return logger;
     }
 } 

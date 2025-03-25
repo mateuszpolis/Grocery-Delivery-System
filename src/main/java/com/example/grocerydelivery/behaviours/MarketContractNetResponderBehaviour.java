@@ -1,6 +1,7 @@
 package com.example.grocerydelivery.behaviours;
 
 import com.example.grocerydelivery.agents.MarketAgent;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.Agent;
 import jade.domain.FIPAAgentManagement.FailureException;
 import jade.domain.FIPAAgentManagement.NotUnderstoodException;
@@ -9,6 +10,7 @@ import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.proto.ContractNetResponder;
+import org.apache.logging.log4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,10 +22,15 @@ import java.util.Map;
 public class MarketContractNetResponderBehaviour extends ContractNetResponder {
 
     private final MarketAgent marketAgent;
+    private final Logger logger;
     
     public MarketContractNetResponderBehaviour(Agent agent, MessageTemplate template) {
         super(agent, template);
         this.marketAgent = (MarketAgent) agent;
+        this.logger = LoggerUtil.getLogger(
+            "MarketContractNet_" + marketAgent.getMarketName(), "Behaviour");
+        logger.info("MarketContractNetResponderBehaviour initialized for {}", 
+                   marketAgent.getMarketName());
     }
     
     /**
@@ -39,7 +46,8 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
     @Override
     protected ACLMessage handleCfp(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
         String conversationId = cfp.getConversationId();
-        marketAgent.log("Received CFP from " + cfp.getSender().getLocalName() + " (conversation: " + conversationId + ")");
+        logger.info("Received CFP from {} (conversation: {})", 
+                   cfp.getSender().getLocalName(), conversationId);
         
         // Extract order from the message
         String content = cfp.getContent();
@@ -57,6 +65,9 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
                 availableItems.put(trimmedItem, price);
                 totalPrice += price;
                 availableCount++;
+                logger.debug("Item available: {} at price {}", trimmedItem, price);
+            } else {
+                logger.debug("Item not available: {}", trimmedItem);
             }
         }
         
@@ -65,12 +76,14 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
         
         if (availableCount == 0) {
             // If no items are available, refuse the proposal
-            marketAgent.log("Refusing proposal - no items available (conversation: " + conversationId + ")");
+            logger.info("Refusing proposal - no items available (conversation: {})", 
+                       conversationId);
             reply.setPerformative(ACLMessage.REFUSE);
             reply.setContent("no-items-available");
         } else {
             // Propose the available items and their total price
-            marketAgent.log("Proposing " + availableCount + " items, total price: " + totalPrice + " (conversation: " + conversationId + ")");
+            logger.info("Proposing {} items, total price: {} (conversation: {})", 
+                       availableCount, totalPrice, conversationId);
             reply.setPerformative(ACLMessage.PROPOSE);
             
             // Format: availableCount|totalPrice|item1:price1,item2:price2,...
@@ -96,13 +109,15 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
     @Override
     protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) throws FailureException {
         String conversationId = accept.getConversationId();
-        marketAgent.log("Proposal accepted by " + accept.getSender().getLocalName() + " (conversation: " + conversationId + ")");
+        logger.info("Proposal accepted by {} (conversation: {})", 
+                   accept.getSender().getLocalName(), conversationId);
         
         // Extract items to be delivered from the acceptance message
         String itemList = accept.getContent();
         
         // Process the order - simulate successful processing for this example
-        marketAgent.log("Processing order: " + itemList + " (conversation: " + conversationId + ")");
+        logger.info("Processing order: {} (conversation: {})", 
+                   itemList, conversationId);
         
         // Send confirmation that items are ready for delivery
         ACLMessage inform = accept.createReply();
@@ -115,6 +130,7 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
     @Override
     protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
         String conversationId = reject.getConversationId();
-        marketAgent.log("Proposal rejected by " + reject.getSender().getLocalName() + " (conversation: " + conversationId + ")");
+        logger.info("Proposal rejected by {} (conversation: {})", 
+                   reject.getSender().getLocalName(), conversationId);
     }
 } 
