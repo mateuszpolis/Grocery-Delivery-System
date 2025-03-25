@@ -22,6 +22,8 @@ import java.util.Map;
 public class LoggerUtil {
     private static final Map<String, Logger> loggers = new HashMap<>();
     private static final String LOG_DIR = "logs";
+    private static final String AGENT_LOG_DIR = LOG_DIR + "/agents";
+    private static final String BEHAVIOUR_LOG_DIR = LOG_DIR + "/behaviours";
     
     /**
      * Creates a logger for an agent or behavior with a dedicated log file.
@@ -43,10 +45,26 @@ public class LoggerUtil {
     }
     
     private static Logger createLogger(String name, String type) {
-        // Ensure log directory exists
+        // Determine the appropriate log directory based on type
+        String targetLogDir;
+        if ("Agent".equalsIgnoreCase(type)) {
+            targetLogDir = AGENT_LOG_DIR;
+        } else if ("Behaviour".equalsIgnoreCase(type)) {
+            targetLogDir = BEHAVIOUR_LOG_DIR;
+        } else {
+            // For any other type, use the main log directory
+            targetLogDir = LOG_DIR;
+        }
+        
+        // Ensure log directories exist
         File logDir = new File(LOG_DIR);
         if (!logDir.exists()) {
             logDir.mkdirs();
+        }
+        
+        File typeLogDir = new File(targetLogDir);
+        if (!typeLogDir.exists()) {
+            typeLogDir.mkdirs();
         }
         
         // Get Logger Context
@@ -54,12 +72,13 @@ public class LoggerUtil {
         Configuration config = context.getConfiguration();
         
         // Create file appender
-        String logFileName = String.format("%s/%s_%s.log", LOG_DIR, type.toLowerCase(), name.toLowerCase());
+        // Now use the type-specific directory for log files
+        String logFileName = String.format("%s/%s.log", targetLogDir, name.toLowerCase());
         String appenderName = type + "_" + name + "_Appender";
         
         // Use builder to create appender
         PatternLayout layout = PatternLayout.newBuilder()
-                .withPattern("%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level - %msg%n")
+                .withPattern("%d{yyyy-MM-dd HH:mm:ss.SSS} [" + name + "] %-5level - %msg%n")
                 .build();
         
         SizeBasedTriggeringPolicy triggeringPolicy = SizeBasedTriggeringPolicy.createPolicy("10MB");
@@ -72,8 +91,8 @@ public class LoggerUtil {
         RollingFileAppender appender = RollingFileAppender.newBuilder()
                 .setName(appenderName)
                 .withFileName(logFileName)
-                .withFilePattern(String.format("%s/%s_%s-%%d{yyyy-MM-dd}-%%i.log.gz", 
-                        LOG_DIR, type.toLowerCase(), name.toLowerCase()))
+                .withFilePattern(String.format("%s/%s-%%d{yyyy-MM-dd}-%%i.log.gz", 
+                        targetLogDir, name.toLowerCase()))
                 .withLayout(layout)
                 .withPolicy(triggeringPolicy)
                 .withStrategy(rolloverStrategy)
