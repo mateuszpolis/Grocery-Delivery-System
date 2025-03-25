@@ -312,14 +312,18 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 // Format the message to the client
                 StringBuilder content = new StringBuilder();
                 
-                // We'll mark SUCCESS even for partial orders, as long as we found some items
-                if (!finalItemPrices.isEmpty()) {
+                // Only mark SUCCESS for complete orders, FAILURE for partial orders
+                if (canFulfillOrder) {
                     content.append("SUCCESS");
-                    String orderType = canFulfillOrder ? "complete" : "partial";
-                    logger.info("Sending SUCCESS proposal with {} items ({}, conversation: {})", finalItemPrices.size(), orderType, conversationId);
+                    logger.info("Sending SUCCESS proposal with complete order ({} items, conversation: {})", finalItemPrices.size(), conversationId);
                 } else {
                     content.append("FAILURE");
-                    logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", conversationId);
+                    if (!finalItemPrices.isEmpty()) {
+                        logger.info("Sending FAILURE proposal for partial order, found {} items but missing {} items (conversation: {})",
+                                finalItemPrices.size(), unavailableItems.size(), conversationId);
+                    } else {
+                        logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", conversationId);
+                    }
                 }
                 
                 // Add total price
