@@ -66,7 +66,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         cfp.setContent(String.join(",", shoppingList));
         
         // Always generate a new unique conversation ID for market communications
-        // Store the original client conversation ID in the reply-with field if needed for correlation
+        // Store the original client conversation ID in the reply-with field
         String marketConversationId = "market-" + UUID.randomUUID().toString();
         cfp.setConversationId(marketConversationId);
         
@@ -87,7 +87,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // Required to match parent class signature
+    @SuppressWarnings("rawtypes")
     protected void handlePropose(ACLMessage propose, Vector v) {
         String marketName = propose.getSender().getLocalName();
         String clientRef = propose.getInReplyTo(); // Get the original client reference if available
@@ -148,7 +148,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
             }
         }
         
-        logger.info("Starting with algorithm: 1) Select market with most items, 2) Tie-break by price, 3) Repeat for remaining items");
+        logger.info("Starting the algorithm: 1) Select market with most items, 2) Tie-break by price, 3) Repeat for remaining items");
         
         // Extract all available items from all markets
         Map<AID, Map<String, Double>> marketItemPrices = new HashMap<>();
@@ -294,9 +294,9 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // Calculate the total price plus delivery fee
         bestTotalPrice = finalItemPrices.values().stream().mapToDouble(Double::doubleValue).sum() + deliveryFee;
         
-        // Now we'll provide feedback on partial vs. complete fulfillment
+        // Provide feedback on partial vs. complete fulfillment
         boolean canFulfillOrder = unavailableItems.isEmpty();
-        String fulfillmentStatus = canFulfillOrder ? "COMPLETE" : "PARTIAL";
+        String fulfillmentStatus = canFulfillOrder ? "COMPLETE" : "FAILURE";
         
         logger.info("====== ORDER SUMMARY ======");
         logger.info("Items found: {}", finalItemPrices.keySet());
@@ -330,7 +330,6 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
                 logger.info("Rejecting proposal from {}", response.getSender().getLocalName());
             }
             
-            // Add reply to acceptances Vector - using @SuppressWarnings for raw type
             @SuppressWarnings("unchecked")
             Vector<ACLMessage> typedAcceptances = acceptances;
             typedAcceptances.add(reply);
@@ -346,7 +345,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     }
 
     @Override
-    @SuppressWarnings("rawtypes") // Required to match parent class signature
+    @SuppressWarnings("rawtypes")
     protected void handleAllResultNotifications(Vector resultNotifications) {
         logger.info("All markets have processed the order");        
     }
@@ -361,7 +360,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // Format the message to the client
         StringBuilder content = new StringBuilder();
         
-        // Only mark SUCCESS for complete orders, FAILURE for partial orders
+        // Only mark SUCCESS for complete orders, FAILURE for partial and empty orders
         if (isSuccess) {
             content.append("SUCCESS");
             logger.info("Sending SUCCESS proposal with complete order ({} items, conversation: {})", finalItemPrices.size(), clientConversationId);

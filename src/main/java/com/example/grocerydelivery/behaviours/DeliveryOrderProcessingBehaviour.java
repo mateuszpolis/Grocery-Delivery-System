@@ -126,10 +126,7 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                 
                 myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
                     myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
-                
-                // Note: Don't remove from activeConversations here - will be removed 
-                // when we get a response (accept/reject) from the client
-                
+                                
             } else {
                 // Use DF to find all markets (legacy behavior)
                 try {
@@ -155,10 +152,7 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                             myAgent, marketAIDs, shoppingList, conversationId);
                         
                         myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
-                            myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
-                        
-                        // Note: Don't remove from activeConversations here - will be removed 
-                        // when we get a response (accept/reject) from the client
+                            myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));                        
                         
                     } else {
                         // No markets found, send failure response to client

@@ -46,7 +46,7 @@ public class DeliveryClientRequestsServerBehaviour extends CyclicBehaviour {
                 // Forward the message to DeliveryOrderProcessingBehaviour by passing it back to agent
                 // Create a copy of the message with the same content and conversation ID
                 ACLMessage forwardMsg = new ACLMessage(ACLMessage.REQUEST);
-                forwardMsg.addReceiver(myAgent.getAID()); // Send to myself
+                forwardMsg.addReceiver(myAgent.getAID());
                 forwardMsg.setContent(content);
                 forwardMsg.setSender(msg.getSender());
                 

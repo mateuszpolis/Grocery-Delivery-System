@@ -77,11 +77,7 @@ public class MarketAgent extends Agent {
         // Add behavior to respond to contract net requests
         addBehaviour(new MarketContractNetResponderBehaviour(this, template));
         logger.debug("Added MarketContractNetResponderBehaviour");
-        
-        // Also add a parallel instance to handle concurrent requests
-        addBehaviour(new MarketContractNetResponderBehaviour(this, template));
-        logger.debug("Added second MarketContractNetResponderBehaviour for concurrent requests");
-        
+                    
         logger.info("Market agent {} setup completed", marketName);
     }
     

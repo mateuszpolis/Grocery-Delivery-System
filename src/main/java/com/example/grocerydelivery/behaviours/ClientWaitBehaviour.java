@@ -30,7 +30,7 @@ public class ClientWaitBehaviour extends OneShotBehaviour {
     public void action() {
         try {
             logger.info("{} waiting for delivery services to register...", clientName);
-            Thread.sleep(2000);
+            Thread.sleep(10000);
         } catch (InterruptedException e) {
             logger.error("Wait interrupted", e);
         }
