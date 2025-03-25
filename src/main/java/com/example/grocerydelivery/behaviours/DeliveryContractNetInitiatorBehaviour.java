@@ -6,7 +6,6 @@ import jade.core.Agent;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.FIPANames;
 import jade.lang.acl.ACLMessage;
-import jade.lang.acl.MessageTemplate;
 import jade.proto.ContractNetInitiator;
 
 import java.util.*;
@@ -74,6 +73,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     }
 
     @Override
+    @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handlePropose(ACLMessage propose, Vector v) {
         System.out.println(myAgent.getLocalName() + " (" + ((DeliveryAgent)myAgent).getDeliveryServiceName() + "): Received proposal from " + propose.getSender().getLocalName());
     }
@@ -96,9 +96,9 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     }
 
     @Override
+    @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handleAllResponses(Vector responses, Vector acceptances) {
         // Process market responses according to the algorithm in the task
-        // We need to implement the logic:
         // 1. Initially try to select all items from the market with the largest number available
         // 2. If multiple markets have the same count, choose the one with lowest price
         // 3. If not all items can be selected from one place, repeat for missing items
@@ -355,6 +355,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     }
 
     @Override
+    @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handleAllResultNotifications(Vector resultNotifications) {
         String deliveryName = ((DeliveryAgent)myAgent).getDeliveryServiceName();
         System.out.println(deliveryName + ": All markets have processed the order");

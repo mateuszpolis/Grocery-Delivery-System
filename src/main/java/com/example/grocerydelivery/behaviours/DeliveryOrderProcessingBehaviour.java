@@ -14,7 +14,6 @@ import jade.lang.acl.MessageTemplate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Behavior for DeliveryAgent to process order requests from clients and 
@@ -22,7 +21,6 @@ import java.util.UUID;
  */
 public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     
-    private final DeliveryAgent deliveryAgent;
     private final String deliveryServiceName;
     private final double deliveryFee;
     
@@ -31,7 +29,6 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     
     public DeliveryOrderProcessingBehaviour(Agent agent, String serviceName, double fee) {
         super(agent);
-        this.deliveryAgent = (DeliveryAgent) agent;
         this.deliveryServiceName = serviceName;
         this.deliveryFee = fee;
     }
