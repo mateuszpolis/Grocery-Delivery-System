@@ -6,28 +6,34 @@ This document describes the implementation of a comprehensive logging system for
 
 ## Features
 
-- **Separate Log Files**: Each agent and behavior has its own dedicated log file
+- **Organized Directory Structure**: Separate folders for agent and behavior logs
 - **Configurable Logging Levels**: Debug, Info, Warn, Error levels
-- **Structured Log Format**: Timestamps, log levels, and class information
+- **Structured Log Format**: Timestamps, agent/behavior names, log levels, and messages
 - **File Rotation**: Log files are rotated based on size (10MB) with compression
 - **Console Output**: Logs are also displayed in the console for development
 
 ## Log File Structure
 
-Log files are stored in the `logs` directory with the following naming convention:
+Log files are stored in the following directory structure:
 
-- Agent logs: `agent_[agentname].log`
-- Behavior logs: `behaviour_[behaviorname].log`
-
-For example:
-- `logs/agent_market1.log`
-- `logs/behaviour_deliverycontractnet_boltfood.log`
+```
+logs/
+├── agents/           # Contains all agent logs
+│   ├── market1.log
+│   ├── market2.log
+│   ├── delivery1.log
+│   └── client1.log
+└── behaviours/       # Contains all behavior logs
+    ├── marketcontractnet_market1.log
+    ├── deliverycontractnet_boltfood.log
+    └── clientorder_alice.log
+```
 
 ## Log Format
 
 Log entries follow this format:
 ```
-2023-04-25 14:30:45.123 [JADE-Thread-1] INFO - Message content
+2023-04-25 14:30:45.123 [AgentName] INFO - Message content
 ```
 
 ## Implementation
@@ -67,10 +73,11 @@ logger.debug("Processing message from {}", sender);
 
 ## Benefits
 
-1. **Easier Debugging**: Each agent/behavior has its own log file, making it easier to trace issues
-2. **No Log Conflicts**: Multi-agent interactions don't create interleaved log entries
-3. **Persistent Records**: Logs are stored for future analysis
-4. **Configurable Verbosity**: Log levels can be adjusted without code changes
+1. **Organized Log Files**: Clear separation between agent and behavior logs
+2. **Easier Debugging**: Each agent/behavior has its own log file, making it easier to trace issues
+3. **No Log Conflicts**: Multi-agent interactions don't create interleaved log entries
+4. **Persistent Records**: Logs are stored for future analysis
+5. **Configurable Verbosity**: Log levels can be adjusted without code changes
 
 ## Dependencies
 

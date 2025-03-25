@@ -5,7 +5,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 import org.apache.logging.log4j.core.appender.RollingFileAppender;
-import org.apache.logging.log4j.core.config.AppenderRef;
 import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.layout.PatternLayout;
@@ -93,7 +92,7 @@ public class LoggerUtil {
                 .withFileName(logFileName)
                 .withFilePattern(String.format("%s/%s-%%d{yyyy-MM-dd}-%%i.log.gz", 
                         targetLogDir, name.toLowerCase()))
-                .withLayout(layout)
+                .setLayout(layout)
                 .withPolicy(triggeringPolicy)
                 .withStrategy(rolloverStrategy)
                 .build();
@@ -104,11 +103,8 @@ public class LoggerUtil {
         // Create logger config
         String loggerName = "com.example.grocerydelivery." + type.toLowerCase() + "." + name.toLowerCase();
         
-        AppenderRef ref = AppenderRef.createAppenderRef(appenderName, Level.DEBUG, null);
-        AppenderRef[] refs = new AppenderRef[] {ref};
-        
-        LoggerConfig loggerConfig = LoggerConfig.createLogger(false, Level.DEBUG, loggerName, 
-                "true", refs, null, config, null);
+        // Create a logger configuration directly without using the deprecated method
+        LoggerConfig loggerConfig = new LoggerConfig(loggerName, Level.DEBUG, true);
         
         loggerConfig.addAppender(appender, Level.DEBUG, null);
         config.addLogger(loggerName, loggerConfig);

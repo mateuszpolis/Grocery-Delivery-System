@@ -150,6 +150,48 @@ The project implements:
    - Implementation of the FIPA Contract Net Protocol for negotiation between agents
    - Proper handling of proposals, acceptances, and rejections
 
+## Test Scenarios
+
+The project includes several test configurations to demonstrate different behaviors of the market selection algorithm:
+
+### Scenario 1 (config_1.json)
+- Basic scenario where items are distributed across different markets
+- Market1 has milk and coffee (expensive)
+- Market2 has only coffee (cheaper)
+- Market3 has only rice
+- Client wants milk, coffee, and rice
+- Expected outcome: The delivery agent should select milk from Market1, coffee from Market2, and rice from Market3
+
+### Scenario 2 (config_2.json)
+- Scenario with overlapping inventories and price competition
+- Market1 has milk and coffee
+- Market2 has coffee and rice (cheaper)
+- Market3 has rice (more expensive)
+- Client wants milk, coffee, and rice
+- Expected outcome: The delivery agent should select milk from Market1, and both coffee and rice from Market2
+
+### Scenario 3 (config_3.json)
+- Scenario to test the "best price" selection
+- Market1 has milk (expensive) and coffee
+- Market2 has coffee (cheaper) and rice
+- Market3 has rice (more expensive)
+- Market4 has milk (cheaper)
+- Client wants milk, coffee, and rice
+- Expected outcome: The delivery agent should select milk from Market4, coffee from Market2, and rice from Market2
+
+You can run these scenarios using the provided run scripts:
+```
+./run.sh config_1.json
+./run.sh config_2.json
+./run.sh config_3.json
+```
+
+## Logging System
+
+The project includes a comprehensive logging system that creates separate log files for each agent and behavior. This makes debugging and monitoring the system much easier.
+
+For detailed information about the logging system, please refer to the [Logging System Documentation](LOGGING_README.md).
+
 ## License
 
 This project is for educational purposes. 
