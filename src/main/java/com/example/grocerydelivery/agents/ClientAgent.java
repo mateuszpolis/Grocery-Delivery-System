@@ -3,12 +3,14 @@ package com.example.grocerydelivery.agents;
 import com.example.grocerydelivery.behaviours.ClientFindDeliveryServicesBehaviour;
 import com.example.grocerydelivery.behaviours.ClientOrderBehaviour;
 import com.example.grocerydelivery.behaviours.ClientWaitBehaviour;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
+import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -22,6 +24,7 @@ import java.util.Map;
 public class ClientAgent extends Agent {
     private String clientName;
     private String[] shoppingList;
+    private Logger logger;
 
     @Override
     protected void setup() {
@@ -35,7 +38,10 @@ public class ClientAgent extends Agent {
             this.clientName = (String) params.get("name");
             this.shoppingList = (String[]) params.get("shoppingList");
             
-            System.out.println(clientName + " started with shopping list: " + Arrays.toString(shoppingList));
+            // Initialize logger
+            this.logger = LoggerUtil.getLogger(clientName, "Agent");
+            
+            logger.info("{} started with shopping list: {}", clientName, Arrays.toString(shoppingList));
             
             // Add delay to ensure other agents are registered
             addBehaviour(new ClientWaitBehaviour(this, clientName, 
@@ -50,7 +56,8 @@ public class ClientAgent extends Agent {
                 }));
             
         } else {
-            System.out.println("ClientAgent requires parameters to start!");
+            logger = LoggerUtil.getLogger("Unknown", "Agent");
+            logger.error("ClientAgent requires parameters to start!");
             doDelete();
         }
     }
@@ -60,7 +67,7 @@ public class ClientAgent extends Agent {
      */
     private void findAndStartOrder() {
         try {
-            System.out.println(clientName + ": Finding delivery services for order...");
+            logger.info("{}: Finding delivery services for order...", clientName);
             
             // Search for delivery services
             DFAgentDescription template = new DFAgentDescription();
@@ -77,23 +84,30 @@ public class ClientAgent extends Agent {
                     deliveryAIDs.add(dfd.getName());
                 }
                 
-                System.out.println(clientName + ": Found " + deliveryAIDs.size() + " delivery services");
+                logger.info("{}: Found {} delivery services", clientName, deliveryAIDs.size());
                 
                 // Start the order process
                 AID[] deliveryArray = deliveryAIDs.toArray(new AID[0]);
                 addBehaviour(new ClientOrderBehaviour(this, clientName, shoppingList, deliveryArray));
                 
             } else {
-                System.out.println(clientName + ": No delivery services found!");
+                logger.warn("{}: No delivery services found!", clientName);
             }
             
         } catch (FIPAException fe) {
-            fe.printStackTrace();
+            logger.error("Error searching for delivery services", fe);
         }
+    }
+    
+    /**
+     * Gets the logger for this agent.
+     */
+    public Logger getLogger() {
+        return logger;
     }
     
     @Override
     protected void takeDown() {
-        System.out.println(clientName + " terminated.");
+        logger.info("{} terminated.", clientName);
     }
 } 

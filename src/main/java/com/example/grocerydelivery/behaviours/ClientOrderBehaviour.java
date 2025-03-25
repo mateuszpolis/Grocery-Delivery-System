@@ -1,10 +1,13 @@
 package com.example.grocerydelivery.behaviours;
 
+import com.example.grocerydelivery.agents.ClientAgent;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 
@@ -27,6 +30,7 @@ public class ClientOrderBehaviour extends Behaviour {
     private final String[] shoppingList;
     private final AID[] deliveryServices;
     private final String conversationId;
+    private final Logger logger;
     
     private int state = STATE_SEND_REQUESTS;
     private int numResponses = 0;
@@ -42,6 +46,8 @@ public class ClientOrderBehaviour extends Behaviour {
         this.shoppingList = shoppingList;
         this.deliveryServices = deliveryServices;
         this.conversationId = "order-" + UUID.randomUUID().toString();
+        this.logger = LoggerUtil.getLogger(
+            "ClientOrder_" + clientName, "Behaviour");
     }
     
     @Override
@@ -78,7 +84,8 @@ public class ClientOrderBehaviour extends Behaviour {
     }
     
     private void sendOrderRequests() {
-        System.out.println(clientName + ": Sending order requests to " + deliveryServices.length + " delivery services");
+        logger.info("{}: Sending order requests to {} delivery services", 
+                   clientName, deliveryServices.length);
         
         // Create request message
         ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
@@ -117,9 +124,8 @@ public class ClientOrderBehaviour extends Behaviour {
             DeliveryProposal proposal = parseProposal(content);
             proposals.put(sender, proposal);
             
-            System.out.println(clientName + ": Received proposal from " + sender.getLocalName() + 
-                               " - Status: " + proposal.status + 
-                               ", Total price: " + proposal.totalPrice);
+            logger.info("{}: Received proposal from {} - Status: {}, Total price: {}", 
+                       clientName, sender.getLocalName(), proposal.status, proposal.totalPrice);
             
             numResponses++;
         } else {
@@ -161,18 +167,17 @@ public class ClientOrderBehaviour extends Behaviour {
     }
     
     private void selectDeliveryService() {
-        System.out.println(clientName + ": Selecting best delivery service from " + proposals.size() + " proposals");
+        logger.info("{}: Selecting best delivery service from {} proposals", 
+                   clientName, proposals.size());
         
-        // Print all proposals for debugging
+        // Log all proposals for debugging
         for (Map.Entry<AID, DeliveryProposal> entry : proposals.entrySet()) {
             AID deliveryService = entry.getKey();
             DeliveryProposal proposal = entry.getValue();
             
-            System.out.println(clientName + ": Proposal from " + deliveryService.getLocalName() + 
-                               " - Status: " + proposal.status + 
-                               ", Total price: " + proposal.totalPrice +
-                               ", Available items: " + proposal.availableItems.keySet() +
-                               ", Unavailable items: " + proposal.unavailableItems);
+            logger.info("{}: Proposal from {} - Status: {}, Total price: {}, Available items: {}, Unavailable items: {}", 
+                       clientName, deliveryService.getLocalName(), proposal.status, proposal.totalPrice, 
+                       proposal.availableItems.keySet(), proposal.unavailableItems);
         }
         
         // Select the best delivery service based on completeness and price
@@ -186,16 +191,16 @@ public class ClientOrderBehaviour extends Behaviour {
             
             // First priority: Status (SUCCESS > FAILURE)
             if ("SUCCESS".equals(proposal.status) && !"SUCCESS".equals(bestStatus)) {
-                System.out.println(clientName + ": Found better status - " + deliveryService.getLocalName() + 
-                                  " with status " + proposal.status);
+                logger.info("{}: Found better status - {} with status {}", 
+                           clientName, deliveryService.getLocalName(), proposal.status);
                 bestDeliveryService = deliveryService;
                 bestStatus = proposal.status;
                 bestPrice = proposal.totalPrice;
             }
             // If same status, select based on price
             else if (proposal.status.equals(bestStatus) && proposal.totalPrice < bestPrice) {
-                System.out.println(clientName + ": Found better price - " + deliveryService.getLocalName() + 
-                                  " with price " + proposal.totalPrice + " (previous best: " + bestPrice + ")");
+                logger.info("{}: Found better price - {} with price {} (previous best: {})", 
+                           clientName, deliveryService.getLocalName(), proposal.totalPrice, bestPrice);
                 bestDeliveryService = deliveryService;
                 bestPrice = proposal.totalPrice;
             }
@@ -213,8 +218,8 @@ public class ClientOrderBehaviour extends Behaviour {
             
             myAgent.send(accept);
             
-            System.out.println(clientName + ": Selected " + selectedDeliveryService.getLocalName() + 
-                               " for delivery with price " + bestPrice);
+            logger.info("{}: Selected {} for delivery with price {}", 
+                       clientName, selectedDeliveryService.getLocalName(), bestPrice);
             
             // Send rejection to other delivery services
             for (AID deliveryService : proposals.keySet()) {
@@ -229,7 +234,7 @@ public class ClientOrderBehaviour extends Behaviour {
             
             state = STATE_WAIT_CONFIRMATION;
         } else {
-            System.out.println(clientName + ": No suitable delivery service found!");
+            logger.warn("{}: No suitable delivery service found!", clientName);
             state = STATE_DONE;
         }
     }
@@ -251,8 +256,8 @@ public class ClientOrderBehaviour extends Behaviour {
             // Process the confirmation
             String content = confirmation.getContent();
             
-            System.out.println(clientName + ": Received confirmation from " + 
-                               selectedDeliveryService.getLocalName() + ": " + content);
+            logger.info("{}: Received confirmation from {}: {}", 
+                       clientName, selectedDeliveryService.getLocalName(), content);
             
             // Order process complete
             state = STATE_DONE;

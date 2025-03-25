@@ -1,6 +1,7 @@
 package com.example.grocerydelivery.behaviours;
 
 import com.example.grocerydelivery.agents.ClientAgent;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -8,6 +9,7 @@ import jade.domain.FIPAAgentManagement.Property;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Iterator;
 
@@ -18,11 +20,14 @@ public class ClientFindDeliveryServicesBehaviour extends OneShotBehaviour {
     
     private final String clientName;
     private final String[] shoppingList;
+    private final Logger logger;
     
     public ClientFindDeliveryServicesBehaviour(ClientAgent agent, String clientName, String[] shoppingList) {
         super(agent);
         this.clientName = clientName;
         this.shoppingList = shoppingList;
+        this.logger = LoggerUtil.getLogger(
+            "ClientFindServices_" + clientName, "Behaviour");
     }
     
     @Override
@@ -33,12 +38,12 @@ public class ClientFindDeliveryServicesBehaviour extends OneShotBehaviour {
         template.addServices(sd);
         
         try {
-            System.out.println(clientName + " searching for delivery services...");
+            logger.info("{} searching for delivery services...", clientName);
             
             DFAgentDescription[] result = DFService.search(myAgent, template);
             
             if (result.length > 0) {
-                System.out.println(clientName + " found " + result.length + " delivery services:");
+                logger.info("{} found {} delivery services:", clientName, result.length);
                 
                 for (DFAgentDescription dfd : result) {
                     ServiceDescription deliverySD = (ServiceDescription) dfd.getAllServices().next();
@@ -56,7 +61,7 @@ public class ClientFindDeliveryServicesBehaviour extends OneShotBehaviour {
                         }
                     }
                     
-                    System.out.println("  - " + deliveryName + " (Fee: " + deliveryFee + " zł)");
+                    logger.info("  - {} (Fee: {} zł)", deliveryName, deliveryFee);
                     
                     // For demonstration, send a request to the first delivery service
                     if (dfd == result[0]) {
@@ -67,15 +72,15 @@ public class ClientFindDeliveryServicesBehaviour extends OneShotBehaviour {
                         request.setConversationId("grocery-order");
                         myAgent.send(request);
                         
-                        System.out.println(clientName + " sent order request to " + deliveryName);
+                        logger.info("{} sent order request to {}", clientName, deliveryName);
                     }
                 }
             } else {
-                System.out.println(clientName + " couldn't find any delivery services.");
+                logger.warn("{} couldn't find any delivery services.", clientName);
             }
             
         } catch (FIPAException fe) {
-            fe.printStackTrace();
+            logger.error("Error searching for delivery services", fe);
         }
     }
 } 

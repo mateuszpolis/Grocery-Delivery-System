@@ -1,7 +1,10 @@
 package com.example.grocerydelivery.behaviours;
 
+import com.example.grocerydelivery.agents.ClientAgent;
+import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.Agent;
 import jade.core.behaviours.OneShotBehaviour;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Behavior for a ClientAgent to wait before searching for delivery services.
@@ -10,22 +13,25 @@ import jade.core.behaviours.OneShotBehaviour;
 public class ClientWaitBehaviour extends OneShotBehaviour {
     
     private final String clientName;
-    private final Agent agent;
+    private final ClientAgent agent;
     private final ClientFindDeliveryServicesBehaviour nextBehaviour;
+    private final Logger logger;
     
     public ClientWaitBehaviour(Agent agent, String clientName, ClientFindDeliveryServicesBehaviour nextBehaviour) {
-        this.agent = agent;
+        this.agent = (ClientAgent) agent;
         this.clientName = clientName;
         this.nextBehaviour = nextBehaviour;
+        this.logger = LoggerUtil.getLogger(
+            "ClientWait_" + clientName, "Behaviour");
     }
     
     @Override
     public void action() {
         try {
-            System.out.println(clientName + " waiting for delivery services to register...");
+            logger.info("{} waiting for delivery services to register...", clientName);
             Thread.sleep(2000);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            logger.error("Wait interrupted", e);
         }
     }
     
