@@ -37,14 +37,18 @@ public class MarketContractNetResponderBehaviour extends ContractNetResponder {
      * Creates a standard template for Contract Net Protocol
      */
     public static MessageTemplate createMessageTemplate() {
-        return MessageTemplate.and(
-            MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET),
-            MessageTemplate.MatchPerformative(ACLMessage.CFP)
-        );
+        return MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
     }
 
     @Override
     protected ACLMessage handleCfp(ACLMessage cfp) throws NotUnderstoodException, RefuseException {
+        // First check if this is indeed a CFP message
+        if (cfp.getPerformative() != ACLMessage.CFP) {
+            logger.warn("Received non-CFP message in handleCfp: {} from {}", 
+                       ACLMessage.getPerformative(cfp.getPerformative()), cfp.getSender().getLocalName());
+            throw new NotUnderstoodException("Expected CFP performative");
+        }
+        
         String conversationId = cfp.getConversationId();
         logger.info("Received CFP from {} (conversation: {})", 
                    cfp.getSender().getLocalName(), conversationId);

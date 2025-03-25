@@ -72,8 +72,8 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         }
         cfp.setConversationId(conversationId);
         
-        // Set a reply deadline (5 seconds)
-        cfp.setReplyByDate(new Date(System.currentTimeMillis() + 5000));
+        // Set a reply deadline (10 seconds)
+        cfp.setReplyByDate(new Date(System.currentTimeMillis() + 10000));
         
         // Get a logger for this static method
         Logger staticLogger = LoggerUtil.getLogger("DeliveryContractNet_Static", "Behaviour");
@@ -113,6 +113,22 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // 3. If not all items can be selected from one place, repeat for missing items
         
         logger.info("Processing {} market responses (conversation: {})", responses.size(), conversationId);
+        
+        // Add a delay to ensure all responses are collected
+        if (responses.isEmpty()) {
+            logger.warn("No market responses received, waiting longer for responses (conversation: {})", conversationId);
+            try {
+                Thread.sleep(2000); // Wait an additional 2 seconds for late responses
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            
+            // Re-check if any responses arrived after waiting
+            if (responses.isEmpty()) {
+                logger.warn("Still no market responses after waiting (conversation: {})", conversationId);
+            }
+        }
+        
         logger.info("Starting with algorithm: 1) Select market with most items, 2) Tie-break by price, 3) Repeat for remaining items");
         
         // Extract all available items from all markets
