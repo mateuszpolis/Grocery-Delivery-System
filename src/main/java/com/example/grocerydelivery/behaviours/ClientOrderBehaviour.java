@@ -135,31 +135,38 @@ public class ClientOrderBehaviour extends Behaviour {
     private DeliveryProposal parseProposal(String content) {
         DeliveryProposal proposal = new DeliveryProposal();
         
-        String[] parts = content.split("\\|", 4);
-        
-        // Parse status
-        proposal.status = parts[0];
-        
-        // Parse total price
-        if (parts.length > 1 && !parts[1].isEmpty()) {
-            proposal.totalPrice = Double.parseDouble(parts[1]);
-        }
-        
-        // Parse available items and prices
-        if (parts.length > 2 && !parts[2].isEmpty()) {
-            for (String itemPrice : parts[2].split(",")) {
-                String[] itemParts = itemPrice.split(":");
-                if (itemParts.length == 2) {
-                    String item = itemParts[0];
-                    double price = Double.parseDouble(itemParts[1]);
-                    proposal.availableItems.put(item, price);
+        try {
+            String[] parts = content.split("\\|", 4);
+            
+            // Parse status
+            proposal.status = parts[0];
+            
+            // Parse total price
+            if (parts.length > 1 && !parts[1].isEmpty()) {
+                proposal.totalPrice = Double.parseDouble(parts[1]);
+            }
+            
+            // Parse available items and prices
+            if (parts.length > 2 && !parts[2].isEmpty()) {
+                for (String itemPrice : parts[2].split(",")) {
+                    String[] itemParts = itemPrice.split(":");
+                    if (itemParts.length == 2) {
+                        String item = itemParts[0];
+                        double price = Double.parseDouble(itemParts[1]);
+                        proposal.availableItems.put(item, price);
+                    }
                 }
             }
-        }
-        
-        // Parse unavailable items
-        if (parts.length > 3 && !parts[3].isEmpty()) {
-            proposal.unavailableItems.addAll(Arrays.asList(parts[3].split(",")));
+            
+            // Parse unavailable items
+            if (parts.length > 3 && !parts[3].isEmpty()) {
+                proposal.unavailableItems.addAll(Arrays.asList(parts[3].split(",")));
+            }
+        } catch (Exception e) {
+            logger.error("{}: Error parsing proposal content: {}", clientName, content, e);
+            // Set default values for a failed parsing
+            proposal.status = "FAILURE";
+            proposal.totalPrice = Double.MAX_VALUE;
         }
         
         return proposal;
@@ -177,6 +184,20 @@ public class ClientOrderBehaviour extends Behaviour {
             logger.info("{}: Proposal from {} - Status: {}, Total price: {}, Available items: {}, Unavailable items: {}", 
                        clientName, deliveryService.getLocalName(), proposal.status, proposal.totalPrice, 
                        proposal.availableItems.keySet(), proposal.unavailableItems);
+        }
+        
+        // Check if there are any SUCCESS offers
+        boolean hasSuccessOffer = proposals.values().stream().anyMatch(p -> "SUCCESS".equals(p.status));
+        if (!hasSuccessOffer) {
+            logger.error("{}: NO SUCCESS OFFERS RECEIVED FROM ANY DELIVERY SERVICE! All delivery services returned FAILURE.", 
+                       clientName);
+            // Log individual failures for analysis
+            for (Map.Entry<AID, DeliveryProposal> entry : proposals.entrySet()) {
+                logger.error("{}: FAILURE details from {}: Available items: {}, Unavailable items: {}", 
+                           clientName, entry.getKey().getLocalName(), 
+                           entry.getValue().availableItems.keySet(), 
+                           entry.getValue().unavailableItems);
+            }
         }
         
         // Select the best delivery service based on completeness and price

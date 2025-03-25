@@ -3,6 +3,7 @@ package com.example.grocerydelivery.behaviours;
 import com.example.grocerydelivery.agents.ClientAgent;
 import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.Agent;
+import jade.core.behaviours.Behaviour;
 import jade.core.behaviours.OneShotBehaviour;
 import org.apache.logging.log4j.Logger;
 
@@ -14,10 +15,10 @@ public class ClientWaitBehaviour extends OneShotBehaviour {
     
     private final String clientName;
     private final ClientAgent agent;
-    private final ClientFindDeliveryServicesBehaviour nextBehaviour;
+    private final Behaviour nextBehaviour;
     private final Logger logger;
     
-    public ClientWaitBehaviour(Agent agent, String clientName, ClientFindDeliveryServicesBehaviour nextBehaviour) {
+    public ClientWaitBehaviour(Agent agent, String clientName, Behaviour nextBehaviour) {
         this.agent = (ClientAgent) agent;
         this.clientName = clientName;
         this.nextBehaviour = nextBehaviour;

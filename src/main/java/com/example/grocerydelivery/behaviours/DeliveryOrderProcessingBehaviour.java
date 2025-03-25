@@ -27,6 +27,7 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
     private final Logger logger;
     
     // Track active conversation IDs to avoid duplicate processing
+    // Use composite key of clientName:conversationId to distinguish between clients
     private final Map<String, Boolean> activeConversations = new HashMap<>();
     
     public DeliveryOrderProcessingBehaviour(Agent agent, String serviceName, double fee) {
@@ -42,6 +43,7 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
         // Create templates for different message types to handle each separately
         
         // 1. Template for new order requests
+        // Process all external REQUEST messages (default behavior)
         MessageTemplate orderRequestTemplate = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
         processOrderRequests(orderRequestTemplate);
         
@@ -64,21 +66,42 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
             // Get the conversation ID to track this request
             String conversationId = msg.getConversationId();
             
-            // Skip if we've already processed this conversation
-            if (activeConversations.containsKey(conversationId)) {
-                logger.debug("Ignoring duplicate request with ID: {}", conversationId);
+            // Check if this is a forwarded message from DeliveryClientRequestsServerBehaviour
+            boolean isForwarded = conversationId != null && conversationId.startsWith("forwarded-");
+            
+            // If it's forwarded, get the original conversation ID (remove all forwarded- prefixes)
+            if (isForwarded) {
+                // Handle potentially multiple "forwarded-" prefixes by removing them all
+                while (conversationId.startsWith("forwarded-")) {
+                    conversationId = conversationId.substring("forwarded-".length());
+                }
+            }
+            
+            // Skip messages to myself that are not forwarded (to avoid processing duplicates)
+            if (msg.getSender().equals(myAgent.getAID()) && !isForwarded) {
+                return;
+            }
+            
+            AID clientAID = msg.getSender();
+            String clientName = clientAID.getLocalName();
+            
+            // Create a composite key using client name and conversation ID
+            String conversationKey = clientName + ":" + conversationId;
+            
+            // Skip if we've already processed this conversation for this client
+            if (activeConversations.containsKey(conversationKey)) {
+                logger.debug("Ignoring duplicate request with ID: {} from client: {}", conversationId, clientName);
                 return;
             }
             
             // Mark this conversation as active
-            activeConversations.put(conversationId, true);
+            activeConversations.put(conversationKey, true);
             
             // Process the request
             String content = msg.getContent();
-            AID clientAID = msg.getSender();
             
             logger.info("Received order request from {}: {}", 
-                       clientAID.getLocalName(), content);
+                       clientName, content);
             
             // Parse shopping list
             String[] shoppingList = content.split(",");
@@ -89,8 +112,11 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
             
             if (!connectedMarkets.isEmpty()) {
                 // Use only connected markets
-                logger.info("Using {} connected markets for order processing", 
-                           connectedMarkets.size());
+                logger.info("Using {} connected markets for order processing: {}", 
+                           connectedMarkets.size(), 
+                           connectedMarkets.stream()
+                               .map(aid -> aid.getLocalName())
+                               .reduce("", (a, b) -> a.isEmpty() ? b : a + ", " + b));
                 
                 AID[] marketAIDs = connectedMarkets.toArray(new AID[0]);
                 
@@ -100,6 +126,9 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                 
                 myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
                     myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
+                
+                // Note: Don't remove from activeConversations here - will be removed 
+                // when we get a response (accept/reject) from the client
                 
             } else {
                 // Use DF to find all markets (legacy behavior)
@@ -128,6 +157,9 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                         myAgent.addBehaviour(new DeliveryContractNetInitiatorBehaviour(
                             myAgent, cfp, shoppingList, deliveryFee, clientAID, conversationId));
                         
+                        // Note: Don't remove from activeConversations here - will be removed 
+                        // when we get a response (accept/reject) from the client
+                        
                     } else {
                         // No markets found, send failure response to client
                         ACLMessage reply = msg.createReply();
@@ -136,10 +168,10 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                         myAgent.send(reply);
                         
                         logger.warn("No markets found, sent failure reply to {}", 
-                                   clientAID.getLocalName());
+                                   clientName);
                         
-                        // Clean up tracking for this conversation
-                        activeConversations.remove(conversationId);
+                        // Clean up tracking for this conversation - no further processing
+                        activeConversations.remove(conversationKey);
                     }
                     
                 } catch (FIPAException e) {
@@ -151,8 +183,8 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                     reply.setContent("Error-searching-markets");
                     myAgent.send(reply);
                     
-                    // Clean up tracking for this conversation
-                    activeConversations.remove(conversationId);
+                    // Clean up tracking for this conversation - no further processing
+                    activeConversations.remove(conversationKey);
                 }
             }
         }
@@ -164,15 +196,17 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
         if (paymentMsg != null) {
             // Process payment
             AID clientAID = paymentMsg.getSender();
+            String clientName = clientAID.getLocalName();
             String content = paymentMsg.getContent();
             String conversationId = paymentMsg.getConversationId();
+            String conversationKey = clientName + ":" + conversationId;
             
             if (content.startsWith("PAYMENT:")) {
                 // Extract payment amount
                 double paymentAmount = Double.parseDouble(content.substring(8));
                 
                 logger.info("Received payment of {} from {}", 
-                           paymentAmount, clientAID.getLocalName());
+                           paymentAmount, clientName);
                 
                 // Send confirmation of delivery
                 ACLMessage confirmation = paymentMsg.createReply();
@@ -180,12 +214,12 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
                 confirmation.setContent("ORDER-DELIVERED");
                 myAgent.send(confirmation);
                 
-                logger.info("Order delivered to {}", clientAID.getLocalName());
+                logger.info("Order delivered to {}", clientName);
                 
                 // Clean up tracking for this conversation
                 if (conversationId != null) {
-                    activeConversations.remove(conversationId);
-                    logger.debug("Removed conversation tracking for {}", conversationId);
+                    activeConversations.remove(conversationKey);
+                    logger.debug("Removed conversation tracking for {}", conversationKey);
                 }
             }
         }
@@ -197,14 +231,16 @@ public class DeliveryOrderProcessingBehaviour extends CyclicBehaviour {
         if (rejectMsg != null) {
             // Process rejection
             AID clientAID = rejectMsg.getSender();
+            String clientName = clientAID.getLocalName();
             String conversationId = rejectMsg.getConversationId();
+            String conversationKey = clientName + ":" + conversationId;
             
-            logger.info("Proposal rejected by {}", clientAID.getLocalName());
+            logger.info("Proposal rejected by {}", clientName);
             
             // Clean up tracking for this conversation
             if (conversationId != null) {
-                activeConversations.remove(conversationId);
-                logger.debug("Removed conversation tracking for {}", conversationId);
+                activeConversations.remove(conversationKey);
+                logger.debug("Removed conversation tracking for {}", conversationKey);
             }
         }
     }

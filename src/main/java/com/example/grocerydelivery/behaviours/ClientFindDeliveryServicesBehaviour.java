@@ -12,6 +12,7 @@ import jade.lang.acl.ACLMessage;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Iterator;
+import java.util.UUID;
 
 /**
  * Behavior for a ClientAgent to find delivery services using DF
@@ -63,17 +64,7 @@ public class ClientFindDeliveryServicesBehaviour extends OneShotBehaviour {
                     
                     logger.info("  - {} (Fee: {} zł)", deliveryName, deliveryFee);
                     
-                    // For demonstration, send a request to the first delivery service
-                    if (dfd == result[0]) {
-                        // Send a request to the delivery service
-                        ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
-                        request.addReceiver(dfd.getName());
-                        request.setContent(String.join(",", shoppingList));
-                        request.setConversationId("grocery-order");
-                        myAgent.send(request);
-                        
-                        logger.info("{} sent order request to {}", clientName, deliveryName);
-                    }
+                    // No longer sending requests here - will be handled by ClientOrderBehaviour
                 }
             } else {
                 logger.warn("{} couldn't find any delivery services.", clientName);

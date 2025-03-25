@@ -32,7 +32,8 @@ public class DeliveryClientRequestsServerBehaviour extends CyclicBehaviour {
             try {
                 // Process the request
                 String content = msg.getContent();
-                logger.info("Received order request: {}", content);
+                String clientName = msg.getSender().getLocalName();
+                logger.info("Received order request from {}: {}", clientName, content);
                 
                 // For demonstration, just acknowledge the order
                 ACLMessage reply = msg.createReply();
@@ -40,7 +41,22 @@ public class DeliveryClientRequestsServerBehaviour extends CyclicBehaviour {
                 reply.setContent("Order-Received");
                 
                 myAgent.send(reply);
-                logger.debug("Sent acknowledgment to client");
+                logger.debug("Sent acknowledgment to client: {}", clientName);
+                
+                // Forward the message to DeliveryOrderProcessingBehaviour by passing it back to agent
+                // Create a copy of the message with the same content and conversation ID
+                ACLMessage forwardMsg = new ACLMessage(ACLMessage.REQUEST);
+                forwardMsg.addReceiver(myAgent.getAID()); // Send to myself
+                forwardMsg.setContent(content);
+                forwardMsg.setSender(msg.getSender());
+                
+                // Create a special conversation ID to differentiate forwarded messages
+                String originalConvId = msg.getConversationId() != null ? msg.getConversationId() : "unknown";
+                forwardMsg.setConversationId("forwarded-" + originalConvId);
+                
+                // Send the message back to the agent for processing by DeliveryOrderProcessingBehaviour
+                myAgent.send(forwardMsg);
+                logger.debug("Forwarded order request to DeliveryOrderProcessingBehaviour");
                 
                 // Detailed order processing will be implemented in future tasks
                 

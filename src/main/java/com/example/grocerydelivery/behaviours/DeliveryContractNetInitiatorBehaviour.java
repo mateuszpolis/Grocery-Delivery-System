@@ -69,6 +69,9 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         // If none provided, generate a new one
         if (conversationId == null || conversationId.isEmpty()) {
             conversationId = "market-" + UUID.randomUUID().toString();
+        } else if (conversationId.startsWith("forwarded-")) {
+            // Strip the forwarded- prefix to ensure we use the original conversation ID
+            conversationId = conversationId.substring("forwarded-".length());
         }
         cfp.setConversationId(conversationId);
         
@@ -321,55 +324,7 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
         myAgent.addBehaviour(new OneShotBehaviour() {
             @Override
             public void action() {
-                ACLMessage clientReply = new ACLMessage(ACLMessage.PROPOSE);
-                clientReply.addReceiver(clientAID);
-                clientReply.setConversationId(conversationId);
-                
-                // Format the message to the client
-                StringBuilder content = new StringBuilder();
-                
-                // Only mark SUCCESS for complete orders, FAILURE for partial orders
-                if (canFulfillOrder) {
-                    content.append("SUCCESS");
-                    logger.info("Sending SUCCESS proposal with complete order ({} items, conversation: {})", finalItemPrices.size(), conversationId);
-                } else {
-                    content.append("FAILURE");
-                    if (!finalItemPrices.isEmpty()) {
-                        logger.info("Sending FAILURE proposal for partial order, found {} items but missing {} items (conversation: {})",
-                                finalItemPrices.size(), unavailableItems.size(), conversationId);
-                    } else {
-                        logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", conversationId);
-                    }
-                }
-                
-                // Add total price
-                content.append("|").append(bestTotalPrice);
-                
-                // Add available items and their prices
-                content.append("|");
-                if (!finalItemPrices.isEmpty()) {
-                    boolean first = true;
-                    for (Map.Entry<String, Double> entry : finalItemPrices.entrySet()) {
-                        if (!first) {
-                            content.append(",");
-                        }
-                        content.append(entry.getKey()).append(":").append(entry.getValue());
-                        first = false;
-                    }
-                }
-                
-                // Add unavailable items
-                content.append("|");
-                if (!unavailableItems.isEmpty()) {
-                    content.append(String.join(",", unavailableItems));
-                }
-                
-                // Set message content
-                clientReply.setContent(content.toString());
-                
-                // Send reply to client
-                myAgent.send(clientReply);
-                logger.info("Sent proposal to client {} with total price: {} (conversation: {})", clientAID.getLocalName(), bestTotalPrice, conversationId);
+                sendProposalToClient(canFulfillOrder);
             }
         });
     }
@@ -378,5 +333,64 @@ public class DeliveryContractNetInitiatorBehaviour extends ContractNetInitiator 
     @SuppressWarnings("rawtypes") // Required to match parent class signature
     protected void handleAllResultNotifications(Vector resultNotifications) {
         logger.info("All markets have processed the order");        
+    }
+
+    private void sendProposalToClient(boolean isSuccess) {
+        // Create a new message to send to the client
+        ACLMessage clientReply = new ACLMessage(ACLMessage.PROPOSE);
+        clientReply.addReceiver(clientAID);
+        
+        // Ensure the conversation ID doesn't have any forwarded- prefix
+        String originalConversationId = conversationId;
+        if (originalConversationId.startsWith("forwarded-")) {
+            originalConversationId = originalConversationId.substring("forwarded-".length());
+        }
+        clientReply.setConversationId(originalConversationId);
+        
+        // Format the message to the client
+        StringBuilder content = new StringBuilder();
+        
+        // Only mark SUCCESS for complete orders, FAILURE for partial orders
+        if (isSuccess) {
+            content.append("SUCCESS");
+            logger.info("Sending SUCCESS proposal with complete order ({} items, conversation: {})", finalItemPrices.size(), conversationId);
+        } else {
+            content.append("FAILURE");
+            if (!finalItemPrices.isEmpty()) {
+                logger.info("Sending FAILURE proposal for partial order, found {} items but missing {} items (conversation: {})",
+                        finalItemPrices.size(), unavailableItems.size(), conversationId);
+            } else {
+                logger.info("Sending FAILURE proposal, couldn't find any items (conversation: {})", conversationId);
+            }
+        }
+        
+        // Add total price
+        content.append("|").append(bestTotalPrice);
+        
+        // Add available items and their prices
+        content.append("|");
+        if (!finalItemPrices.isEmpty()) {
+            boolean first = true;
+            for (Map.Entry<String, Double> entry : finalItemPrices.entrySet()) {
+                if (!first) {
+                    content.append(",");
+                }
+                content.append(entry.getKey()).append(":").append(entry.getValue());
+                first = false;
+            }
+        }
+        
+        // Add unavailable items
+        content.append("|");
+        if (!unavailableItems.isEmpty()) {
+            content.append(String.join(",", unavailableItems));
+        }
+        
+        // Set message content
+        clientReply.setContent(content.toString());
+        
+        // Send reply to client
+        myAgent.send(clientReply);
+        logger.info("Sent proposal to client {} with total price: {} (conversation: {})", clientAID.getLocalName(), bestTotalPrice, conversationId);
     }
 } 

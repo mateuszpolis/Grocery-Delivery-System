@@ -6,6 +6,7 @@ import com.example.grocerydelivery.behaviours.ClientWaitBehaviour;
 import com.example.grocerydelivery.utils.LoggerUtil;
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.OneShotBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -45,13 +46,12 @@ public class ClientAgent extends Agent {
             
             // Add delay to ensure other agents are registered
             addBehaviour(new ClientWaitBehaviour(this, clientName, 
-                // Find available delivery services and start the ordering process
-                new ClientFindDeliveryServicesBehaviour(this, clientName, shoppingList) {
+                // After waiting, directly start the order process
+                new OneShotBehaviour() {
                     @Override
-                    public int onEnd() {
-                        // After finding delivery services, start the order process
+                    public void action() {
+                        // Start the order process by finding delivery services and sending orders
                         findAndStartOrder();
-                        return super.onEnd();
                     }
                 }));
             
